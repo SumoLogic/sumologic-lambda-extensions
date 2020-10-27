@@ -4,11 +4,11 @@ import (
 	// "bytes"
 	"fmt"
 	// "net/http"
+	"lambdaapi"
 	"os"
 	"path/filepath"
-	"time"
 	"sumoclient"
-	"lambdaapi"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -17,7 +17,7 @@ const (
 	// Subscription Body Constants. Subscribe to platform logs and receive them on ${local_ip}:4243 via HTTP protocol.
 	timeoutMs = 1000
 	maxBytes  = 262144
-	maxLen    = 102
+	maxItems  = 1000
 )
 
 // SumoLogicExtension is the type struct for Extension API.
@@ -86,10 +86,10 @@ func main() {
         "types": ["platform", "function"],
         "buffering": {
             "timeoutMs": %v,
-            "max_bytes": %v,
-            "max_len": %v
+            "maxBytes": %v,
+            "maxItems": %v
         }
-    }`, lambdaapi.ReceiverPort, timeoutMs, maxBytes, maxLen)
+    }`, lambdaapi.ReceiverPort, timeoutMs, maxBytes, maxItems)
 
 	log.WithFields(log.Fields{
 		"registrationBody": registrationBody, "subscriptionBody": subscriptionBody,
