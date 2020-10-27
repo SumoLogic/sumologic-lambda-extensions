@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
+	// "bytes"
 	"fmt"
-	"net/http"
+	// "net/http"
 	"os"
 	"path/filepath"
 	"time"
-
+	"sumoclient"
 	"lambdaapi"
 
 	log "github.com/sirupsen/logrus"
@@ -68,26 +68,8 @@ func (sumoLogicExtension *SumoLogicExtension) RunForever() {
 			data := sumoLogicExtension.httpServer.Queue[0]
 			sumoLogicExtension.httpServer.Queue = sumoLogicExtension.httpServer.Queue[1:]
 			// Test Code. Needs to be replaced with SendToSumo Code.
-			log.WithFields(log.Fields{
-				"data": data, "Length": len(sumoLogicExtension.httpServer.Queue),
-			}).Info("Getting Data as from Logs API :")
-
-			request, error := http.NewRequest("POST", "https://collectors.au.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ysAXzCTwVXvj4Vw7QgS3nJ8nwOqiFLweEr_2VSqRQTeBz6mq0IQWIhR5G41qh4eQAhGImhQDt6Y75wHL5F8DJoyuush7AXp88rtIa0si-0A==", bytes.NewBuffer([]byte(data)))
-			if error != nil {
-				log.Fatalln(error)
-			}
-			request.Header.Set("Content-Type", "application/json")
-
-			timeout := time.Duration(5 * time.Second)
-			httpClient := http.Client{Timeout: timeout}
-
-			response, error := httpClient.Do(request)
-			if error != nil {
-				log.Fatalln(error)
-			}
-			log.WithFields(log.Fields{
-				"response": response,
-			}).Info("Send to Sumo Logic :")
+			sumocli := sumoclient.NewSumoLogicClient()
+			sumocli.SendToSumo(data)
 		}
 	}
 }
