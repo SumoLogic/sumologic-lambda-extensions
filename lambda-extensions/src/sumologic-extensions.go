@@ -2,100 +2,109 @@ package main
 
 import (
 	// "bytes"
-	"fmt"
+
 	// "net/http"
+	"context"
+	"encoding/json"
+	"fmt"
 	"lambdaapi"
 	"os"
+	"os/signal"
 	"path/filepath"
-	"sumoclient"
-	"time"
-
-	log "github.com/sirupsen/logrus"
+	"syscall"
 )
 
-const (
-	// Subscription Body Constants. Subscribe to platform logs and receive them on ${local_ip}:4243 via HTTP protocol.
-	timeoutMs = 1000
-	maxBytes  = 262144
-	maxItems  = 1000
+var (
+	extensionName   = filepath.Base(os.Args[0]) // extension name has to match the filename
+	printPrefix     = fmt.Sprintf("[%s]", extensionName)
+	extensionClient = lambdaapi.NewClient(os.Getenv("AWS_LAMBDA_RUNTIME_API"), extensionName)
+	httpServer      = lambdaapi.NewHTTPServer()
 )
 
-// SumoLogicExtension is the type struct for Extension API.
-type SumoLogicExtension struct {
-	agentName          string
-	registrationBody   string
-	subscriptionBody   string
-	agentID            string
-	extensionAPIClient *lambdaapi.LambdaExtensionAPIClient
-	httpServer         *lambdaapi.HTTPServer
-}
-
-// NewSumoLogicExtension is - Creating a new object.
-func NewSumoLogicExtension(agentName, registrationBody, subscriptionBody string) *SumoLogicExtension {
-	return &SumoLogicExtension{
-		agentName:        agentName,
-		registrationBody: registrationBody,
-		subscriptionBody: subscriptionBody,
-	}
-}
-
-// SetUp is - calling the Extension RunTime API, HTTP listener and Logs API subscription.
-func (sumoLogicExtension *SumoLogicExtension) SetUp() {
-	log.WithFields(log.Fields{
-		"agentName": sumoLogicExtension.agentName,
-	}).Info("Intializing Sumo Logic Extension with ")
-	sumoLogicExtension.extensionAPIClient = lambdaapi.NewLambdaExtensionAPIClient(sumoLogicExtension.agentName, sumoLogicExtension.registrationBody)
+func init() {
+	fmt.Println(printPrefix, "Initializing Extension.........")
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		s := <-sigs
+		cancel()
+		fmt.Println(printPrefix, "Received", s)
+	}()
 	// Register early so Runtime could start in parallel
-	sumoLogicExtension.agentID = sumoLogicExtension.extensionAPIClient.Register()
-	// Start listening before Logs API registration
-	sumoLogicExtension.httpServer = lambdaapi.NewHTTPServer()
-	go sumoLogicExtension.httpServer.HTTPServerInit()
+	fmt.Println(printPrefix, "Registering Extension to Run Time API Client..........")
+	registerResponse, error := extensionClient.RegisterExtension(ctx)
+	if error != nil {
+		panic(error)
+	}
+	fmt.Println(printPrefix, "Succcessfully Registered with Run Time API Client: ", PrettyPrint(registerResponse))
+	// Start HTTP Server before subscription in a goRoutine
+	go httpServer.HTTPServerStart()
 	// Subscribe to Logs API
-	logsAPIClient := lambdaapi.NewLambdaLogsAPIClient(sumoLogicExtension.agentID, sumoLogicExtension.subscriptionBody)
-	logsAPIClient.Subscribe()
+	fmt.Println(printPrefix, "Subscribing Extension to Logs API........")
+	subscribeResponse, error := extensionClient.SubscribeToLogsAPI(ctx)
+	if error != nil {
+		panic(error)
+	}
+	fmt.Println(printPrefix, "Successfully subscribed to Logs API: ", PrettyPrint(string(subscribeResponse)))
+	fmt.Println(printPrefix, "Successfully Intialized Sumo Logic Extension.")
 }
 
-// RunForever is - listening to the LOGS API using next method.
-func (sumoLogicExtension *SumoLogicExtension) RunForever() {
-	log.WithFields(log.Fields{
-		"agentName": sumoLogicExtension.agentName,
-	}).Info("Serving Sumo Logic Extension with ")
+// processEvents is - Will block until shutdown event is received or cancelled via the context..
+func processEvents(ctx context.Context) {
 	for {
-		sumoLogicExtension.extensionAPIClient.Next(sumoLogicExtension.agentID)
-		time.Sleep(1 * time.Second)
-		for len(sumoLogicExtension.httpServer.Queue) != 0 {
-			// Send the Data to Sumo Logic, Data in JSON Array format already but as a string.
-			data := sumoLogicExtension.httpServer.Queue[0]
-			sumoLogicExtension.httpServer.Queue = sumoLogicExtension.httpServer.Queue[1:]
-			// Test Code. Needs to be replaced with SendToSumo Code.
-			sumocli := sumoclient.NewSumoLogicClient()
-			sumocli.SendToSumo(data)
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			fmt.Println(printPrefix, "Waiting for Run Time API event...")
+			nextResponse, error := extensionClient.NextEvent(ctx)
+			if error != nil {
+				fmt.Println(printPrefix, "Error:", error.Error())
+				fmt.Println(printPrefix, "Exiting")
+				return
+			}
+			//println(printPrefix, "Received Run Time API event:", PrettyPrint(nextResponse))
+			// Exit if we receive a SHUTDOWN event
+			if nextResponse.EventType == lambdaapi.Shutdown {
+				fmt.Println(printPrefix, "Received SHUTDOWN event")
+				// TODO: do something here and if failed send a ExitError
+				fmt.Println(printPrefix, "Exiting")
+				return
+			}
 		}
 	}
 }
 
+func processLogs(ctx context.Context) {
+	for len(httpServer.Queue) != 0 {
+		// Send the Data to Sumo Logic, Data in JSON Array format already but as a string.
+		data := httpServer.Queue[0]
+		httpServer.Queue = httpServer.Queue[1:]
+	}
+}
+
+// PrettyPrint is to print the object
+func PrettyPrint(v interface{}) string {
+	data, err := json.MarshalIndent(v, "", "\t")
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 func main() {
-	// Register for the INVOKE events from the RUNTIME API
-	registrationBody := `{"events": ["INVOKE"]}`
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		s := <-sigs
+		cancel()
+		println(printPrefix, "Received", s)
+	}()
 
-	subscriptionBody := fmt.Sprintf(`{
-        "destination": {
-            "protocol": "HTTP",
-            "URI": "http://sandbox:%v"
-        },
-        "types": ["platform", "function"],
-        "buffering": {
-            "timeoutMs": %v,
-            "maxBytes": %v,
-            "maxItems": %v
-        }
-    }`, lambdaapi.ReceiverPort, timeoutMs, maxBytes, maxItems)
-
-	log.WithFields(log.Fields{
-		"registrationBody": registrationBody, "subscriptionBody": subscriptionBody,
-	}).Info("Starting Sumo Logic Extension ")
-	// Note: Agent name has to be file name to register as an external extension
-	sumoLogicExtension := NewSumoLogicExtension(filepath.Base(os.Args[0]), registrationBody, subscriptionBody)
-	sumoLogicExtension.SetUp()
-	sumoLogicExtension.RunForever()
+	//Call Send to Sumo here in a different GO Routine with Context, to find out if the things are done
+	go processLogs(ctx)
+	// Will block until shutdown event is received or cancelled via the context.
+	processEvents(ctx)
 }

@@ -1,66 +1,43 @@
 package lambdaapi
 
 import (
-	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
-// LambdaLogsAPIClient is the type struct for Logs API.
-type LambdaLogsAPIClient struct {
-	runTimeAPIURL    string
-	agentIdentifier  string
-	subscriptionBody string
-}
+const (
+	// Base URL for extension
+	logsURL = "2020-08-15/logs"
+	// Subscription Body Constants. Subscribe to platform logs and receive them on ${local_ip}:4243 via HTTP protocol.
+	timeoutMs = 1000
+	maxBytes  = 262144
+	maxItems  = 1000
+)
 
-// NewLambdaLogsAPIClient is - Getting the AWS_LAMBDA_RUNTIME_API env variable and Creating a new object.
-func NewLambdaLogsAPIClient(agentIdentifier, subscriptionBody string) *LambdaLogsAPIClient {
-	// Should be "127.0.0.1:9001"
-	apiAddress := os.Getenv("AWS_LAMBDA_RUNTIME_API")
-	return &LambdaLogsAPIClient{
-		runTimeAPIURL:    fmt.Sprintf("http://%v/2020-08-15", apiAddress),
-		agentIdentifier:  agentIdentifier,
-		subscriptionBody: subscriptionBody,
-	}
-}
+var (
+	logEvents = []EventType{"platform", "function", "extension"}
+)
 
-// Subscribe is - Subscribe to Logs API to receive the Lambda Logs.
-func (client *LambdaLogsAPIClient) Subscribe() {
-	log.WithFields(log.Fields{
-		"apiAddress": client.runTimeAPIURL,
-	}).Info("Subscribing to Logs API on ")
+// SubscribeToLogsAPI is - Subscribe to Logs API to receive the Lambda Logs.
+func (client *Client) SubscribeToLogsAPI(ctx context.Context) ([]byte, error) {
+	URL := client.baseURL + logsURL
 
-	request, error := http.NewRequest("PUT", client.runTimeAPIURL+"/logs", bytes.NewBuffer([]byte(client.subscriptionBody)))
+	reqBody, error := json.Marshal(map[string]interface{}{
+		"destination": map[string]interface{}{"protocol": "HTTP", "URI": fmt.Sprintf("http://sandbox:%v", ReceiverPort)},
+		"types":       logEvents,
+		"buffering":   map[string]interface{}{"timeoutMs": timeoutMs, "maxBytes": maxBytes, "maxItems": maxItems},
+	})
 	if error != nil {
-		log.Fatalln(error)
+		return nil, error
 	}
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set(lambdaAgentIdentifierHeaderKey, client.agentIdentifier)
-
-	timeout := time.Duration(5 * time.Second)
-	httpClient := http.Client{Timeout: timeout}
-
-	response, error := httpClient.Do(request)
+	headers := map[string]string{
+		extensionIdentiferHeader: client.extensionID,
+	}
+	response, error := client.MakeRequest(ctx, headers, reqBody, "PUT", URL)
 	if error != nil {
-		log.Fatalln(error)
+		return nil, error
 	}
 
-	defer response.Body.Close()
-	if response.StatusCode != 200 {
-		log.WithFields(log.Fields{
-			"Status": response.Status, "Body": response.Body,
-		}).Error("Could not subscribe to Logs API. ")
-	}
-	body, error := ioutil.ReadAll(response.Body)
-	if error != nil {
-		log.Fatalln(error)
-	}
-	log.WithFields(log.Fields{
-		"Response": string(body),
-	}).Info("Successfully subscribed to Logs API: ")
+	return response, nil
 }

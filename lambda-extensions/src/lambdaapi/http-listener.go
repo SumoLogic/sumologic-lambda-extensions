@@ -27,12 +27,8 @@ func NewHTTPServer() *HTTPServer {
 	}
 }
 
-// HTTPServerInit is to start the HTTP Server
-func (httpServer *HTTPServer) HTTPServerInit() {
-	log.WithFields(log.Fields{
-		"ReceiverIP":   ReceiverIP,
-		"ReceiverPort": ReceiverPort,
-	}).Info("Intializing HTTP Server on ")
+// HTTPServerStart is to start the HTTP Server
+func (httpServer *HTTPServer) HTTPServerStart() {
 	http.HandleFunc("/", httpServer.LogsHandler)
 	http.ListenAndServe(fmt.Sprintf("%s:%d", ReceiverIP, ReceiverPort), nil)
 }
