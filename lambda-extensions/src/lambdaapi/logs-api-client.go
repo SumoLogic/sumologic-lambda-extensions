@@ -16,12 +16,8 @@ const (
 	maxItems  = 1000
 )
 
-var (
-	logEvents = []EventType{"platform", "function", "extension"}
-)
-
 // SubscribeToLogsAPI is - Subscribe to Logs API to receive the Lambda Logs.
-func (client *Client) SubscribeToLogsAPI(ctx context.Context) ([]byte, error) {
+func (client *Client) SubscribeToLogsAPI(ctx context.Context, logEvents []string) ([]byte, error) {
 	URL := client.baseURL + logsURL
 
 	reqBody, err := json.Marshal(map[string]interface{}{

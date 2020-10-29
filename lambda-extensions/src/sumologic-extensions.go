@@ -1,26 +1,34 @@
 package main
 
 import (
+<<<<<<< HEAD
 	// "bytes"
 
 	// "net/http"
 	"bytes"
+=======
+	cfg "config"
+>>>>>>> e6da5b0bd18066da44e9d174e11549331ae902a0
 	"context"
-	"encoding/json"
 	"fmt"
 	"lambdaapi"
 	"os"
 	"os/signal"
 	"path/filepath"
+	sumocli "sumoclient"
 	"syscall"
+	"utils"
 )
 
 var (
 	extensionName   = filepath.Base(os.Args[0]) // extension name has to match the filename
 	printPrefix     = fmt.Sprintf("[%s]", extensionName)
 	extensionClient = lambdaapi.NewClient(os.Getenv("AWS_LAMBDA_RUNTIME_API"), extensionName)
-	httpServer      = lambdaapi.NewHTTPServer()
+	dataQueue       = make(chan []byte)
+	httpServer      = lambdaapi.NewHTTPServer(dataQueue)
+	sumoclient      = sumocli.NewLogSenderClient()
 )
+var config *cfg.LambdaExtensionConfig
 
 func init() {
 	fmt.Println(printPrefix, "Initializing Extension.........")
@@ -30,17 +38,30 @@ func init() {
 	if err != nil {
 		extensionClient.InitError(nil, "Error during extension registration."+err.Error())
 	}
-	fmt.Println(printPrefix, "Succcessfully Registered with Run Time API Client: ", PrettyPrint(registerResponse))
+	fmt.Println(printPrefix, "Succcessfully Registered with Run Time API Client: ", utils.PrettyPrint(registerResponse))
 	// Start HTTP Server before subscription in a goRoutine
 	go httpServer.HTTPServerStart()
+
+	// Creating config and performing validation
+	config, error = cfg.GetConfig()
+	if error != nil {
+		panic(error)
+	}
 	// Subscribe to Logs API
 	fmt.Println(printPrefix, "Subscribing Extension to Logs API........")
+<<<<<<< HEAD
 	subscribeResponse, err := extensionClient.SubscribeToLogsAPI(nil)
 	if err != nil {
 		extensionClient.InitError(nil, "Error during Logs API Subscription."+err.Error())
+=======
+	subscribeResponse, error := extensionClient.SubscribeToLogsAPI(ctx, config.LogTypes)
+	if error != nil {
+		panic(error)
+>>>>>>> e6da5b0bd18066da44e9d174e11549331ae902a0
 	}
-	fmt.Println(printPrefix, "Successfully subscribed to Logs API: ", PrettyPrint(string(subscribeResponse)))
+	fmt.Println(printPrefix, "Successfully subscribed to Logs API: ", utils.PrettyPrint(string(subscribeResponse)))
 	fmt.Println(printPrefix, "Successfully Intialized Sumo Logic Extension.")
+
 }
 
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
@@ -49,6 +70,13 @@ func processEvents(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+		case rawmsg := <-dataQueue:
+			fmt.Println("Consuming data from dataQueue")
+			err := sumoclient.SendLogs(rawmsg)
+			if err != nil {
+				// discuss what to do here
+				return
+			}
 		default:
 			fmt.Println(printPrefix, "Waiting for Run Time API event...")
 			nextResponse, err := extensionClient.NextEvent(ctx)
@@ -57,7 +85,7 @@ func processEvents(ctx context.Context) {
 				fmt.Println(printPrefix, "Exiting")
 				return
 			}
-			//println(printPrefix, "Received Run Time API event:", PrettyPrint(nextResponse))
+			//println(printPrefix, "Received Run Time API event:", utils.PrettyPrint(nextResponse))
 			// Exit if we receive a SHUTDOWN event
 			if nextResponse.EventType == lambdaapi.Shutdown {
 				fmt.Println(printPrefix, "Received SHUTDOWN event")
@@ -69,6 +97,7 @@ func processEvents(ctx context.Context) {
 	}
 }
 
+<<<<<<< HEAD
 func processLogs(ctx context.Context) {
 	for len(lambdaapi.Messages) != 0 {
 		// Send the Data to Sumo Logic, Data in JSON Array format already but as a string.
@@ -94,6 +123,8 @@ func PrettyPrint(v interface{}) string {
 	return string(data)
 }
 
+=======
+>>>>>>> e6da5b0bd18066da44e9d174e11549331ae902a0
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	sigs := make(chan os.Signal, 1)
@@ -103,8 +134,12 @@ func main() {
 		cancel()
 		fmt.Println(printPrefix, "Received", s)
 	}()
+<<<<<<< HEAD
 	//Call Send to Sumo here in a different GO Routine with Context, to find out if the things are done
 	go processLogs(ctx)
+=======
+
+>>>>>>> e6da5b0bd18066da44e9d174e11549331ae902a0
 	// Will block until shutdown event is received or cancelled via the context.
 	processEvents(ctx)
 }

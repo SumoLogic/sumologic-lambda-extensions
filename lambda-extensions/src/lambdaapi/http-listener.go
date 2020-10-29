@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -21,11 +19,20 @@ const (
 
 // HTTPServer is a struct with list
 type HTTPServer struct {
+<<<<<<< HEAD
 }
 
 // NewHTTPServer is to return a new object
 func NewHTTPServer() *HTTPServer {
 	return &HTTPServer{}
+=======
+	dataQueue chan []byte
+}
+
+// NewHTTPServer is to return a new object
+func NewHTTPServer(consumerQueue chan []byte) *HTTPServer {
+	return &HTTPServer{dataQueue: consumerQueue}
+>>>>>>> e6da5b0bd18066da44e9d174e11549331ae902a0
 }
 
 // HTTPServerStart is to start the HTTP Server
@@ -42,10 +49,19 @@ func (httpServer *HTTPServer) LogsHandler(writer http.ResponseWriter, request *h
 	}
 	switch request.Method {
 	case "POST":
+<<<<<<< HEAD
 		reqBody, err := ioutil.ReadAll(request.Body)
 		if err != nil {
 			log.Fatalln(err)
 		}
 		Messages <- string(reqBody)
+=======
+		reqBody, error := ioutil.ReadAll(request.Body)
+		if error != nil {
+			panic(error)
+		}
+		fmt.Println("Producing data into dataQueue")
+		httpServer.dataQueue <- []byte(reqBody)
+>>>>>>> e6da5b0bd18066da44e9d174e11549331ae902a0
 	}
 }

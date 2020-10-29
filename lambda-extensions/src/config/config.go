@@ -3,72 +3,121 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
-	"strings"
 	"strconv"
+	"strings"
+	"utils"
 )
 
 type LambdaExtensionConfig struct {
 	SumoHTTPEndpoint    string
 	EnableFailover      bool
 	S3BucketName        string
+	S3BucketRegion      string
 	MaxRetry            int64
 	AWSLambdaRuntimeAPI string
+	LogTypes            []string
+	FunctionName        string
+	FunctionVersion     string
 }
 
+var validLogTypes = []string{"platform", "function", "extension"}
+
+// GetConfig to get config instance
 func GetConfig() (*LambdaExtensionConfig, error) {
 
 	config := &LambdaExtensionConfig{
-		SumoHTTPEndpoint: os.Getenv("SUMO_HTTP_ENDPOINT"),
-		S3BucketName: os.Getenv("S3_BUCKET_NAME"),
+		SumoHTTPEndpoint:    os.Getenv("SUMO_HTTP_ENDPOINT"),
+		S3BucketName:        os.Getenv("S3_BUCKET_NAME"),
+		S3BucketRegion:      os.Getenv("S3_BUCKET_REGION"),
 		AWSLambdaRuntimeAPI: os.Getenv("AWS_LAMBDA_RUNTIME_API"),
+		FunctionName:        os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
+		FunctionVersion:     os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
 	}
 
-	err := (*config).SetDefaults()
+	(*config).setDefaults()
 
-	err = (*config).ValidateConfig()
-	fmt.Println(err, err == nil)
-	if err == nil {
-		return config, nil
-	} else {
+	err := (*config).validateConfig()
+
+	if err != nil {
 		return nil, err
 	}
+	return config, nil
 }
-func (cfg *LambdaExtensionConfig) SetDefaults()  error {
+func (cfg *LambdaExtensionConfig) setDefaults() {
 	maxRetry := os.Getenv("MAX_RETRY")
 	enableFailover := os.Getenv("ENABLE_FAILOVER")
-	var err  error
+	logTypes := os.Getenv("LOG_TYPES")
 	if maxRetry == "" {
 		cfg.MaxRetry = 3
-	} else {
-		cfg.MaxRetry,  err  = strconv.ParseInt(maxRetry, 10,  32)
 	}
 	if enableFailover == "" {
 		cfg.EnableFailover = false
-	} else {
-		cfg.EnableFailover,  err  = strconv.ParseBool(enableFailover)
 	}
 	if cfg.AWSLambdaRuntimeAPI == "" {
 		cfg.AWSLambdaRuntimeAPI = "127.0.0.1:9001"
 	}
-	return err
+	if logTypes == "" {
+		cfg.LogTypes = validLogTypes
+	} else {
+		cfg.LogTypes = strings.Split(logTypes, ",")
+	}
 }
 
-func (cfg *LambdaExtensionConfig) ValidateConfig() error {
+func (cfg *LambdaExtensionConfig) validateConfig() error {
+	maxRetry := os.Getenv("MAX_RETRY")
+	enableFailover := os.Getenv("ENABLE_FAILOVER")
 	var allErrors []string
 	var err error
+
 	if cfg.SumoHTTPEndpoint == "" {
 		allErrors = append(allErrors, "SUMO_HTTP_ENDPOINT not set in environment variable")
 	}
 
-	// test url valid
-
-	if cfg.EnableFailover == true && cfg.S3BucketName == "" {
-		allErrors = append(allErrors, "S3_BUCKET_NAME not set in environment variable")
+	// Todo test url valid
+	if cfg.SumoHTTPEndpoint != "" {
+		_, err = url.ParseRequestURI("http://google.com/")
+		if err != nil {
+			allErrors = append(allErrors, "SUMO_HTTP_ENDPOINT is not Valid")
+		}
 	}
-	if allErrors != nil {
+
+	if enableFailover != "" {
+		cfg.EnableFailover, err = strconv.ParseBool(enableFailover)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse EnableFailover: %v", err))
+		}
+	}
+
+	if cfg.EnableFailover == true {
+		if cfg.S3BucketName == "" {
+			allErrors = append(allErrors, "S3_BUCKET_NAME not set in environment variable")
+		}
+		if cfg.S3BucketRegion == "" {
+			allErrors = append(allErrors, "S3_BUCKET_REGION not set in environment variable")
+		}
+	}
+
+	if maxRetry != "" {
+		cfg.MaxRetry, err = strconv.ParseInt(maxRetry, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxRetry: %v", err))
+		}
+
+	}
+
+	// test valid log format type
+	for _, logType := range cfg.LogTypes {
+		if !utils.StringInSlice(strings.TrimSpace(logType), validLogTypes) {
+			allErrors = append(allErrors, fmt.Sprintf("logType %s is unsupported logtype", logType))
+		}
+	}
+
+	if len(allErrors) > 0 {
 		err = errors.New(strings.Join(allErrors, ", "))
 	}
+
 	return err
 }
 
