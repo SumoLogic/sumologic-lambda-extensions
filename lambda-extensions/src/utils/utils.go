@@ -42,7 +42,7 @@ func StringInSlice(a string, list []string) bool {
 	return false
 }
 
-// Compress compresses string and returns buffer
+// Compress compresses string and returns byte array
 func Compress(logStringToSend *string) []byte {
 
 	var buf bytes.Buffer
@@ -50,6 +50,16 @@ func Compress(logStringToSend *string) []byte {
 	g.Write([]byte(*logStringToSend))
 	g.Close()
 	return buf.Bytes()
+}
+
+// CompressBuffer compresses string and returns byte array
+func CompressBuffer(inputbuf *bytes.Buffer) *bytes.Buffer {
+
+	var outputbuf bytes.Buffer
+	g := gzip.NewWriter(&outputbuf)
+	g.Write(inputbuf.Bytes())
+	g.Close()
+	return &outputbuf
 }
 
 // PrettyPrint is to print the object

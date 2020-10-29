@@ -10,6 +10,7 @@ import (
 	"utils"
 )
 
+// LambdaExtensionConfig config for storing all configurable parameters
 type LambdaExtensionConfig struct {
 	SumoHTTPEndpoint    string
 	EnableFailover      bool

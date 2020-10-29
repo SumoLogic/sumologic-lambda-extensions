@@ -14,11 +14,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const (
+	maxchannelLength       = 20
+	maxConcurrentConsumers = 3
+)
+
 var (
 	logger          = logrus.New().WithField("Name", extensionName)
 	extensionName   = filepath.Base(os.Args[0]) // extension name has to match the filename
 	extensionClient = lambdaapi.NewClient(os.Getenv("AWS_LAMBDA_RUNTIME_API"), extensionName)
-	dataQueue       = make(chan []byte)
+	dataQueue       = make(chan []byte, 20)
 	httpServer      = lambdaapi.NewHTTPServer(dataQueue, logger)
 	sumoclient      = sumocli.NewLogSenderClient(logger)
 )
@@ -66,6 +71,7 @@ func processEvents(ctx context.Context) {
 				extensionClient.ExitError(ctx, "Error during Send Logs to Sumo Logic."+err.Error())
 				return
 			}
+
 		default:
 			logger.Info("Waiting for Run Time API event...")
 			nextResponse, err := extensionClient.NextEvent(ctx)
