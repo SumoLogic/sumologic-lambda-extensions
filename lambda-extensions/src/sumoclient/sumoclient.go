@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"config"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,11 +15,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var maxDataPayloadSize int = 1024 * 1024 // 1 MB
 const (
 	connectionTimeoutValue = 10000
 	maxRetryAttempts       = 5
 	sleepTime              = 300 * time.Millisecond
-	maxDataPayloadSize     = 1024 * 1024 // 1 MB
 )
 
 // LogSender interface which needs to be implemented to send logs
@@ -34,7 +35,7 @@ type sumoLogicClient struct {
 	logger            *logrus.Entry
 }
 
-type responseBody []interface{}
+type responseBody []map[string]interface{}
 
 // NewLogSenderClient returns interface pointing to the concrete version of LogSender client
 func NewLogSenderClient(logger *logrus.Entry) LogSender {
@@ -98,27 +99,52 @@ func (s *sumoLogicClient) failoverHandler(buf *bytes.Buffer) error {
 	return err
 }
 
-func getchunkSize() {
+func (s *sumoLogicClient) createChunks(rawmsg []byte) ([]string, error) {
+	var msg responseBody
+	var err error
+	var chunks []string
+	err = json.Unmarshal(rawmsg, &msg)
+	if err != nil {
+		return chunks, fmt.Errorf("Error in parsing payload: %v", err)
+	}
 
+	var itemSize int
+	var chunkSize int = 0
+	var currentChunk bytes.Buffer
+	var errorCount int = 0
+	for _, item := range msg {
+		b, err := json.Marshal(item)
+		if err != nil {
+			s.logger.Error("Error in coverting to json: ", err.Error())
+			errorCount++
+		}
+		itemSize = binary.Size(b)
+		if chunkSize+itemSize+1 >= maxDataPayloadSize {
+			chunks = append(chunks, currentChunk.String())
+			currentChunk = *bytes.NewBufferString(string(b))
+			chunkSize = itemSize
+		} else {
+			chunkSize += itemSize + 1
+			currentChunk.WriteString(fmt.Sprintf("\n%s", string(b)))
+		}
+
+	}
+	chunks = append(chunks, currentChunk.String())
+	if errorCount > 0 {
+		err = fmt.Errorf("Dropping %d messages due to json parsing error", errorCount)
+	}
+	s.logger.Debugf("Chunks created: %d NumOfParsingError: %d\n", len(chunks), errorCount)
+	return chunks, err
 }
 
 // SendToSumo send logs to sumo http endpoint returns
 func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 	var err error
 	if len(rawmsg) > 0 {
-		var msg responseBody
-		var err error
-		err = json.Unmarshal(rawmsg, &msg)
-		if err != nil {
-			return err
+		chunks, _ := s.createChunks(rawmsg)
+		for _, strobj := range chunks {
+			s.postToSumo(ctx, &strobj)
 		}
-		strobj := string(rawmsg)
-		s.postToSumo(ctx, &strobj)
-		// for _, obj := range msg {
-		// 	// Todo add chunking
-		// 	strobj := fmt.Sprintf("%v", obj)
-		// 	s.postToSumo(ctx, &strobj)
-		// }
 	}
 	return err
 }
@@ -138,7 +164,7 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 		s.logger.Errorf("Not able to post statuscode:  %v %v\n", err, response)
-		s.logger.Infof("Waiting for %v ms to retry\n", sleepTime)
+		s.logger.Debugf("Waiting for %v ms to retry\n", sleepTime)
 		time.Sleep(sleepTime)
 		err := utils.Retry(func(attempt int64) (bool, error) {
 			var errRetry error
@@ -148,8 +174,8 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 				if errRetry == nil {
 					errRetry = fmt.Errorf("statuscode %v", response.StatusCode)
 				}
-				s.logger.Infof("Not able to post: ", errRetry)
-				s.logger.Infof("Waiting for %v ms to retry attempts done: %v\n", sleepTime, attempt)
+				s.logger.Error("Not able to post: ", errRetry)
+				s.logger.Debugf("Waiting for %v ms to retry attempts done: %v\n", sleepTime, attempt)
 				time.Sleep(sleepTime)
 				return attempt < maxRetryAttempts, errRetry
 			} else if response.StatusCode == 200 {
@@ -159,7 +185,7 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 			return attempt < maxRetryAttempts, errRetry
 		}, s.config.MaxRetry)
 		if err != nil {
-			s.logger.Infof("Finished retrying Error: ", err)
+			s.logger.Error("Finished retrying Error: ", err)
 			buf = createBuffer()
 			return s.failoverHandler(buf) // sending uncompressed logs to S3 so customer can easily view it
 		}
@@ -173,13 +199,35 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	return nil
 }
 
-// func main() {
-// 	os.Setenv("MAX_RETRY", "3")
-// 	os.Setenv("SUMO_HTTP_ENDPOINT", "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw=")
-// 	os.Setenv("S3_BUCKET_NAME", "test-angad")
-// 	os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "himlambda")
-// 	os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "Latest$")
-// 	client := NewLogSenderClient()
-// 	var logs = "hello world"
-// 	fmt.Println(client.SendLogs(&logs))
-// }
+/*
+func main() {
+	var logger = logrus.New().WithField("Name", "sumo-extension")
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		s := <-sigs
+		cancel()
+		fmt.Println("Received", s)
+	}()
+	os.Setenv("MAX_RETRY", "3")
+	os.Setenv("SUMO_HTTP_ENDPOINT", "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw==")
+	os.Setenv("S3_BUCKET_NAME", "test-angad")
+	os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "himlambda")
+	os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "Latest$")
+
+	// success scenario
+	client := NewLogSenderClient(logger)
+	var logs = []byte("[{\"key\": \"value\"}]")
+	fmt.Println(client.SendLogs(ctx, logs))
+
+	// retry scenario + failover
+	client = NewLogSenderClient(logger)
+	os.Setenv("SUMO_HTTP_ENDPOINT", "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw=")
+	fmt.Println(client.SendLogs(ctx, logs))
+
+	maxDataPayloadSize = 500
+	// chunking large data
+	var largedata = []byte(`[{"time":"2020-10-27T15:36:14.133Z","type":"platform.start","record":{"requestId":"7313c951-e0bc-4818-879f-72d202e24727","version":"$LATEST"}},{"time":"2020-10-27T15:36:14.282Z","type":"platform.logsSubscription","record":{"name":"sumologic-extension","state":"Subscribed","types":["platform","function"]}},{"time":"2020-10-27T15:36:14.283Z","type":"function","record":"2020-10-27T15:36:14.281Z\tundefined\tINFO\tLoading function\n"},{"time":"2020-10-27T15:36:14.283Z","type":"platform.extension","record":{"name":"sumologic-extension","state":"Ready","events":["INVOKE"]}},{"time":"2020-10-27T15:36:14.301Z","type":"function","record":"2020-10-27T15:36:14.285Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue1 = value1\n"},{"time":"2020-10-27T15:36:14.302Z","type":"function","record":"2020-10-27T15:36:14.301Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue2 = value2\n"},{"time":"2020-10-27T15:36:14.302Z","type":"function","record":"2020-10-27T15:36:14.301Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue3 = value3\n"}]`)
+	fmt.Println(client.SendLogs(ctx, largedata))
+} */
