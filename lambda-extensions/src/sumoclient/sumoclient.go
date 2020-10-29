@@ -11,6 +11,7 @@ import (
 	"utils"
 
 	uuid "github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -30,17 +31,19 @@ type sumoLogicClient struct {
 	connectionTimeout int
 	httpClient        http.Client
 	config            *config.LambdaExtensionConfig
+	logger            *logrus.Entry
 }
 
 type responseBody []interface{}
 
 // NewLogSenderClient returns interface pointing to the concrete version of LogSender client
-func NewLogSenderClient() LogSender {
+func NewLogSenderClient(logger *logrus.Entry) LogSender {
 	cfg, _ := config.GetConfig()
 	var logSenderClient LogSender = &sumoLogicClient{
 		connectionTimeout: connectionTimeoutValue,
 		httpClient:        http.Client{Timeout: time.Duration(connectionTimeoutValue * int(time.Millisecond))},
 		config:            cfg,
+		logger:            logger,
 	}
 	return logSenderClient
 }
@@ -49,7 +52,7 @@ func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*
 
 	request, err := http.NewRequestWithContext(ctx, "POST", s.config.SumoHTTPEndpoint, buf)
 	if err != nil {
-		fmt.Printf("http.NewRequest() error: %v\n", err)
+		s.logger.Errorf("http.NewRequest() error: %v\n", err)
 		return nil, err
 	}
 	request.Header.Add("Content-Encoding", "gzip")
@@ -83,7 +86,7 @@ func (s *sumoLogicClient) getS3KeyName() (string, error) {
 
 func (s *sumoLogicClient) failoverHandler(buf *bytes.Buffer) error {
 
-	fmt.Println("Trying to Send to S3")
+	s.logger.Debug("Trying to Send to S3")
 	keyName, err := s.getS3KeyName()
 	if err != nil {
 		return err
@@ -121,7 +124,7 @@ func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 }
 
 func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *string) error {
-	fmt.Println("Attempting to send to Sumo Endpoint")
+	s.logger.Info("Attempting to send to Sumo Endpoint")
 
 	// compressing here because Sumo recommends payload size of 1MB before compression
 	bytedata := utils.Compress(logStringToSend)
@@ -134,8 +137,8 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	response, err := s.makeRequest(ctx, buf)
 
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
-		fmt.Printf("Not able to post statuscode:  %v %v\n", err, response)
-		fmt.Printf("Waiting for %v ms to retry\n", sleepTime)
+		s.logger.Errorf("Not able to post statuscode:  %v %v\n", err, response)
+		s.logger.Infof("Waiting for %v ms to retry\n", sleepTime)
 		time.Sleep(sleepTime)
 		err := utils.Retry(func(attempt int64) (bool, error) {
 			var errRetry error
@@ -145,23 +148,23 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 				if errRetry == nil {
 					errRetry = fmt.Errorf("statuscode %v", response.StatusCode)
 				}
-				fmt.Println("Not able to post: ", errRetry)
-				fmt.Printf("Waiting for %v ms to retry attempts done: %v\n", sleepTime, attempt)
+				s.logger.Infof("Not able to post: ", errRetry)
+				s.logger.Infof("Waiting for %v ms to retry attempts done: %v\n", sleepTime, attempt)
 				time.Sleep(sleepTime)
 				return attempt < maxRetryAttempts, errRetry
 			} else if response.StatusCode == 200 {
-				fmt.Printf("Post of logs successful after retry %v attempts\n", attempt)
+				s.logger.Debugf("Post of logs successful after retry %v attempts\n", attempt)
 				return true, nil
 			}
 			return attempt < maxRetryAttempts, errRetry
 		}, s.config.MaxRetry)
 		if err != nil {
-			fmt.Println("Finished retrying Error: ", err)
+			s.logger.Infof("Finished retrying Error: ", err)
 			buf = createBuffer()
 			return s.failoverHandler(buf) // sending uncompressed logs to S3 so customer can easily view it
 		}
 	} else if response.StatusCode == 200 {
-		fmt.Println("Post of logs successful")
+		s.logger.Debugf("Post of logs successful")
 	}
 	if response != nil {
 		defer response.Body.Close()
