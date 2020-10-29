@@ -3,6 +3,7 @@ package sumoclient
 import (
 	"bytes"
 	"config"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -21,7 +22,7 @@ const (
 
 // LogSender interface which needs to be implemented to send logs
 type LogSender interface {
-	SendLogs([]byte) error
+	SendLogs(context.Context, []byte) error
 }
 
 // sumoLogicClient implements LogSender interface
@@ -44,9 +45,9 @@ func NewLogSenderClient() LogSender {
 	return logSenderClient
 }
 
-func (s *sumoLogicClient) makeRequest(buf *bytes.Buffer) (*http.Response, error) {
+func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*http.Response, error) {
 
-	request, err := http.NewRequest("POST", s.config.SumoHTTPEndpoint, buf)
+	request, err := http.NewRequestWithContext(ctx, "POST", s.config.SumoHTTPEndpoint, buf)
 	if err != nil {
 		fmt.Printf("http.NewRequest() error: %v\n", err)
 		return nil, err
@@ -99,7 +100,7 @@ func getchunkSize() {
 }
 
 // SendToSumo send logs to sumo http endpoint returns
-func (s *sumoLogicClient) SendLogs(rawmsg []byte) error {
+func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 	var err error
 	if len(rawmsg) > 0 {
 		var msg responseBody
@@ -108,16 +109,18 @@ func (s *sumoLogicClient) SendLogs(rawmsg []byte) error {
 		if err != nil {
 			return err
 		}
-		for _, obj := range msg {
-			// Todo add chunking
-			strobj := fmt.Sprintf("%v", obj)
-			s.postToSumo(&strobj)
-		}
+		strobj := string(rawmsg)
+		s.postToSumo(ctx, &strobj)
+		// for _, obj := range msg {
+		// 	// Todo add chunking
+		// 	strobj := fmt.Sprintf("%v", obj)
+		// 	s.postToSumo(ctx, &strobj)
+		// }
 	}
 	return err
 }
 
-func (s *sumoLogicClient) postToSumo(logStringToSend *string) error {
+func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *string) error {
 	fmt.Println("Attempting to send to Sumo Endpoint")
 
 	// compressing here because Sumo recommends payload size of 1MB before compression
@@ -128,7 +131,7 @@ func (s *sumoLogicClient) postToSumo(logStringToSend *string) error {
 		return bytes.NewBuffer(dest)
 	}
 	buf := createBuffer()
-	response, err := s.makeRequest(buf)
+	response, err := s.makeRequest(ctx, buf)
 
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 		fmt.Printf("Not able to post statuscode:  %v %v\n", err, response)
@@ -137,7 +140,7 @@ func (s *sumoLogicClient) postToSumo(logStringToSend *string) error {
 		err := utils.Retry(func(attempt int64) (bool, error) {
 			var errRetry error
 			buf := createBuffer()
-			response, errRetry = s.makeRequest(buf)
+			response, errRetry = s.makeRequest(ctx, buf)
 			if (errRetry != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 				if errRetry == nil {
 					errRetry = fmt.Errorf("statuscode %v", response.StatusCode)
