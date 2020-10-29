@@ -124,7 +124,7 @@ func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 }
 
 func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *string) error {
-	s.logger.Info("Attempting to send to Sumo Endpoint")
+	s.logger.Debug("Attempting to send to Sumo Endpoint")
 
 	// compressing here because Sumo recommends payload size of 1MB before compression
 	bytedata := utils.Compress(logStringToSend)

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	sumocli "sumoclient"
 	"syscall"
-	"time"
 	"utils"
 
 	"github.com/sirupsen/logrus"
@@ -54,9 +53,12 @@ func init() {
 
 }
 
-func processLogs(ctx context.Context) {
+// processEvents is - Will block until shutdown event is received or cancelled via the context..
+func processEvents(ctx context.Context) {
 	for {
 		select {
+		case <-ctx.Done():
+			return
 		case rawmsg := <-dataQueue:
 			logger.Debug("Consuming data from dataQueue")
 			err := sumoclient.SendLogs(ctx, rawmsg)
@@ -64,18 +66,6 @@ func processLogs(ctx context.Context) {
 				extensionClient.ExitError(ctx, "Error during Send Logs to Sumo Logic."+err.Error())
 				return
 			}
-		default:
-			return
-		}
-	}
-}
-
-// processEvents is - Will block until shutdown event is received or cancelled via the context..
-func processEvents(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
 		default:
 			logger.Info("Waiting for Run Time API event...")
 			nextResponse, err := extensionClient.NextEvent(ctx)
@@ -105,8 +95,6 @@ func main() {
 		cancel()
 		logger.Info("Received", s)
 	}()
-	go processLogs(ctx)
-	time.Sleep(1 * time.Second)
 	// Will block until shutdown event is received or cancelled via the context.
 	processEvents(ctx)
 }
