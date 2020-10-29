@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 )
 
@@ -49,4 +50,13 @@ func Compress(logStringToSend *string) []byte {
 	g.Write([]byte(*logStringToSend))
 	g.Close()
 	return buf.Bytes()
+}
+
+// PrettyPrint is to print the object
+func PrettyPrint(v interface{}) string {
+	data, err := json.MarshalIndent(v, "", "\t")
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }

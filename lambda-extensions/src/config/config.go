@@ -17,12 +17,12 @@ type LambdaExtensionConfig struct {
 	S3BucketRegion      string
 	MaxRetry            int64
 	AWSLambdaRuntimeAPI string
-	LogTypes            string
+	LogTypes            []string
 	FunctionName        string
 	FunctionVersion     string
 }
 
-var validLogTypes = []string{"platform", "function"}
+var validLogTypes = []string{"platform", "function", "extension"}
 
 // GetConfig to get config instance
 func GetConfig() (*LambdaExtensionConfig, error) {
@@ -36,21 +36,19 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 		FunctionVersion:     os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
 	}
 
-	err := (*config).setDefaults()
+	(*config).setDefaults()
 
-	err = (*config).validateConfig()
-	fmt.Println(err, err == nil)
-	if err == nil {
-		return config, nil
-	} else {
+	err := (*config).validateConfig()
+
+	if err != nil {
 		return nil, err
 	}
+	return config, nil
 }
-func (cfg *LambdaExtensionConfig) setDefaults() error {
+func (cfg *LambdaExtensionConfig) setDefaults() {
 	maxRetry := os.Getenv("MAX_RETRY")
 	enableFailover := os.Getenv("ENABLE_FAILOVER")
 	logTypes := os.Getenv("LOG_TYPES")
-	var err error
 	if maxRetry == "" {
 		cfg.MaxRetry = 3
 	}
@@ -61,10 +59,10 @@ func (cfg *LambdaExtensionConfig) setDefaults() error {
 		cfg.AWSLambdaRuntimeAPI = "127.0.0.1:9001"
 	}
 	if logTypes == "" {
-		cfg.LogTypes = strings.Join(validLogTypes, ",")
+		cfg.LogTypes = validLogTypes
+	} else {
+		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
-
-	return err
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
@@ -110,8 +108,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	}
 
 	// test valid log format type
-	logTypes := strings.Split(cfg.LogTypes, ",")
-	for _, logType := range logTypes {
+	for _, logType := range cfg.LogTypes {
 		if !utils.StringInSlice(strings.TrimSpace(logType), validLogTypes) {
 			allErrors = append(allErrors, fmt.Sprintf("logType %s is unsupported logtype", logType))
 		}

@@ -3,6 +3,7 @@ package sumoclient
 import (
 	"bytes"
 	"config"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -20,7 +21,7 @@ const (
 
 // LogSender interface which needs to be implemented to send logs
 type LogSender interface {
-	SendLogs(*string) error
+	SendLogs([]byte) error
 }
 
 // sumoLogicClient implements LogSender interface
@@ -29,6 +30,8 @@ type sumoLogicClient struct {
 	httpClient        http.Client
 	config            *config.LambdaExtensionConfig
 }
+
+type responseBody []interface{}
 
 // NewLogSenderClient returns interface pointing to the concrete version of LogSender client
 func NewLogSenderClient() LogSender {
@@ -91,54 +94,76 @@ func (s *sumoLogicClient) failoverHandler(buf *bytes.Buffer) error {
 	return err
 }
 
-// SendToSumo send logs to sumo http endpoint returns
-func (s *sumoLogicClient) SendLogs(logStringToSend *string) error {
-	fmt.Println("Attempting to send to Sumo Endpoint")
-	if *logStringToSend != "" {
-		// compressing here because Sumo recommends payload size of 1MB before compression
-		bytedata := utils.Compress(logStringToSend)
-		createBuffer := func() *bytes.Buffer {
-			dest := make([]byte, len(bytedata))
-			copy(dest, bytedata)
-			return bytes.NewBuffer(dest)
-		}
-		buf := createBuffer()
-		response, err := s.makeRequest(buf)
+func getchunkSize() {
 
-		if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
-			fmt.Printf("Not able to post statuscode:  %v %v\n", err, response)
-			fmt.Printf("Waiting for %v ms to retry\n", sleepTime)
-			time.Sleep(sleepTime)
-			err := utils.Retry(func(attempt int64) (bool, error) {
-				var errRetry error
-				buf := createBuffer()
-				response, errRetry = s.makeRequest(buf)
-				if (errRetry != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
-					if errRetry == nil {
-						errRetry = fmt.Errorf("statuscode %v", response.StatusCode)
-					}
-					fmt.Println("Not able to post: ", errRetry)
-					fmt.Printf("Waiting for %v ms to retry attempts done: %v\n", sleepTime, attempt)
-					time.Sleep(sleepTime)
-					return attempt < maxRetryAttempts, errRetry
-				} else if response.StatusCode == 200 {
-					fmt.Printf("Post of logs successful after retry %v attempts\n", attempt)
-					return true, nil
-				}
-				return attempt < maxRetryAttempts, errRetry
-			}, s.config.MaxRetry)
-			if err != nil {
-				fmt.Println("Finished retrying Error: ", err)
-				buf = createBuffer()
-				return s.failoverHandler(buf) // sending uncompressed logs to S3 so customer can easily view it
-			}
-		} else if response.StatusCode == 200 {
-			fmt.Println("Post of logs successful")
+}
+
+// SendToSumo send logs to sumo http endpoint returns
+func (s *sumoLogicClient) SendLogs(rawmsg []byte) error {
+	var err error
+	if len(rawmsg) > 0 {
+		var msg responseBody
+		var err error
+		err = json.Unmarshal(rawmsg, &msg)
+		if err != nil {
+			return err
 		}
-		if response != nil {
-			defer response.Body.Close()
+		for _, obj := range msg {
+			// Todo add chunking
+			strobj := fmt.Sprintf("%v", obj)
+			s.postToSumo(&strobj)
 		}
 	}
+	return err
+}
+
+func (s *sumoLogicClient) postToSumo(logStringToSend *string) error {
+	fmt.Println("Attempting to send to Sumo Endpoint")
+
+	// compressing here because Sumo recommends payload size of 1MB before compression
+	bytedata := utils.Compress(logStringToSend)
+	createBuffer := func() *bytes.Buffer {
+		dest := make([]byte, len(bytedata))
+		copy(dest, bytedata)
+		return bytes.NewBuffer(dest)
+	}
+	buf := createBuffer()
+	response, err := s.makeRequest(buf)
+
+	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
+		fmt.Printf("Not able to post statuscode:  %v %v\n", err, response)
+		fmt.Printf("Waiting for %v ms to retry\n", sleepTime)
+		time.Sleep(sleepTime)
+		err := utils.Retry(func(attempt int64) (bool, error) {
+			var errRetry error
+			buf := createBuffer()
+			response, errRetry = s.makeRequest(buf)
+			if (errRetry != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
+				if errRetry == nil {
+					errRetry = fmt.Errorf("statuscode %v", response.StatusCode)
+				}
+				fmt.Println("Not able to post: ", errRetry)
+				fmt.Printf("Waiting for %v ms to retry attempts done: %v\n", sleepTime, attempt)
+				time.Sleep(sleepTime)
+				return attempt < maxRetryAttempts, errRetry
+			} else if response.StatusCode == 200 {
+				fmt.Printf("Post of logs successful after retry %v attempts\n", attempt)
+				return true, nil
+			}
+			return attempt < maxRetryAttempts, errRetry
+		}, s.config.MaxRetry)
+		if err != nil {
+			fmt.Println("Finished retrying Error: ", err)
+			buf = createBuffer()
+			return s.failoverHandler(buf) // sending uncompressed logs to S3 so customer can easily view it
+		}
+	} else if response.StatusCode == 200 {
+		fmt.Println("Post of logs successful")
+	}
+	if response != nil {
+		defer response.Body.Close()
+	}
+
 	return nil
 }
 
