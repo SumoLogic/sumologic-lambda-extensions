@@ -1,6 +1,7 @@
 package lambdaapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,20 +24,25 @@ var (
 func (client *Client) SubscribeToLogsAPI(ctx context.Context) ([]byte, error) {
 	URL := client.baseURL + logsURL
 
-	reqBody, error := json.Marshal(map[string]interface{}{
+	reqBody, err := json.Marshal(map[string]interface{}{
 		"destination": map[string]interface{}{"protocol": "HTTP", "URI": fmt.Sprintf("http://sandbox:%v", ReceiverPort)},
 		"types":       logEvents,
 		"buffering":   map[string]interface{}{"timeoutMs": timeoutMs, "maxBytes": maxBytes, "maxItems": maxItems},
 	})
-	if error != nil {
-		return nil, error
+	if err != nil {
+		return nil, err
 	}
 	headers := map[string]string{
 		extensionIdentiferHeader: client.extensionID,
 	}
-	response, error := client.MakeRequest(ctx, headers, reqBody, "PUT", URL)
-	if error != nil {
-		return nil, error
+	var response []byte
+	if ctx != nil {
+		response, err = client.MakeRequestWithContext(ctx, headers, bytes.NewBuffer(reqBody), "PUT", URL)
+	} else {
+		response, err = client.MakeRequest(headers, bytes.NewBuffer(reqBody), "PUT", URL)
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	return response, nil

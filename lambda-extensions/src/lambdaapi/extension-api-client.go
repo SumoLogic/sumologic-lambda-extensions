@@ -1,6 +1,7 @@
 package lambdaapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 )
@@ -52,23 +53,29 @@ var (
 // otherwise you may get a timeout error. Runtime initialization will start after all extensions are registered.
 func (client *Client) RegisterExtension(ctx context.Context) (*RegisterResponse, error) {
 	URL := client.baseURL + extensionURL + "register"
-	reqBody, error := json.Marshal(map[string]interface{}{
+	reqBody, err := json.Marshal(map[string]interface{}{
 		"events": lambdaEvents,
 	})
-	if error != nil {
-		return nil, error
+	if err != nil {
+		return nil, err
 	}
 	headers := map[string]string{
 		extensionNameHeader: client.extensionName,
 	}
-	response, error := client.MakeRequest(ctx, headers, reqBody, "POST", URL)
-	if error != nil {
-		return nil, error
+	var response []byte
+	if ctx != nil {
+		response, err = client.MakeRequestWithContext(ctx, headers, bytes.NewBuffer(reqBody), "POST", URL)
+	} else {
+		response, err = client.MakeRequest(headers, bytes.NewBuffer(reqBody), "POST", URL)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 	registerResponse := RegisterResponse{}
-	error = json.Unmarshal(response, &registerResponse)
-	if error != nil {
-		return nil, error
+	err = json.Unmarshal(response, &registerResponse)
+	if err != nil {
+		return nil, err
 	}
 	return &registerResponse, nil
 }
@@ -81,14 +88,20 @@ func (client *Client) NextEvent(ctx context.Context) (*NextEventResponse, error)
 	headers := map[string]string{
 		extensionIdentiferHeader: client.extensionID,
 	}
-	response, error := client.MakeRequest(ctx, headers, nil, "GET", URL)
-	if error != nil {
-		return nil, error
+	var response []byte
+	var err error
+	if ctx != nil {
+		response, err = client.MakeRequestWithContext(ctx, headers, bytes.NewBuffer(nil), "GET", URL)
+	} else {
+		response, err = client.MakeRequest(headers, bytes.NewBuffer(nil), "GET", URL)
+	}
+	if err != nil {
+		return nil, err
 	}
 	nextEventResponse := NextEventResponse{}
-	error = json.Unmarshal(response, &nextEventResponse)
-	if error != nil {
-		return nil, error
+	err = json.Unmarshal(response, &nextEventResponse)
+	if err != nil {
+		return nil, err
 	}
 	return &nextEventResponse, nil
 }
@@ -101,14 +114,20 @@ func (client *Client) InitError(ctx context.Context, errorType string) (*StatusR
 		extensionIdentiferHeader: client.extensionID,
 		extensionErrorType:       errorType,
 	}
-	response, error := client.MakeRequest(ctx, headers, nil, "POST", URL)
-	if error != nil {
-		return nil, error
+	var response []byte
+	var err error
+	if ctx != nil {
+		response, err = client.MakeRequestWithContext(ctx, headers, bytes.NewBuffer(nil), "POST", URL)
+	} else {
+		response, err = client.MakeRequest(headers, bytes.NewBuffer(nil), "POST", URL)
+	}
+	if err != nil {
+		return nil, err
 	}
 	statusResponse := StatusResponse{}
-	error = json.Unmarshal(response, &statusResponse)
-	if error != nil {
-		return nil, error
+	err = json.Unmarshal(response, &statusResponse)
+	if err != nil {
+		return nil, err
 	}
 	return &statusResponse, nil
 }
@@ -121,14 +140,20 @@ func (client *Client) ExitError(ctx context.Context, errorType string) (*StatusR
 		extensionIdentiferHeader: client.extensionID,
 		extensionErrorType:       errorType,
 	}
-	response, error := client.MakeRequest(ctx, headers, nil, "POST", URL)
-	if error != nil {
-		return nil, error
+	var response []byte
+	var err error
+	if ctx != nil {
+		response, err = client.MakeRequestWithContext(ctx, headers, bytes.NewBuffer(nil), "POST", URL)
+	} else {
+		response, err = client.MakeRequest(headers, bytes.NewBuffer(nil), "POST", URL)
+	}
+	if err != nil {
+		return nil, err
 	}
 	statusResponse := StatusResponse{}
-	error = json.Unmarshal(response, &statusResponse)
-	if error != nil {
-		return nil, error
+	err = json.Unmarshal(response, &statusResponse)
+	if err != nil {
+		return nil, err
 	}
 	return &statusResponse, nil
 }

@@ -8,6 +8,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var (
+	Messages = make(chan string, 10)
+)
+
 const (
 	// ReceiverIP is Web Server Constants
 	ReceiverIP = "0.0.0.0"
@@ -17,14 +21,11 @@ const (
 
 // HTTPServer is a struct with list
 type HTTPServer struct {
-	Queue []string
 }
 
 // NewHTTPServer is to return a new object
 func NewHTTPServer() *HTTPServer {
-	return &HTTPServer{
-		Queue: make([]string, 10),
-	}
+	return &HTTPServer{}
 }
 
 // HTTPServerStart is to start the HTTP Server
@@ -41,10 +42,10 @@ func (httpServer *HTTPServer) LogsHandler(writer http.ResponseWriter, request *h
 	}
 	switch request.Method {
 	case "POST":
-		reqBody, error := ioutil.ReadAll(request.Body)
-		if error != nil {
-			log.Fatalln(error)
+		reqBody, err := ioutil.ReadAll(request.Body)
+		if err != nil {
+			log.Fatalln(err)
 		}
-		httpServer.Queue = append(httpServer.Queue, string(reqBody))
+		Messages <- string(reqBody)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	// "bytes"
 
 	// "net/http"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,28 +24,20 @@ var (
 
 func init() {
 	fmt.Println(printPrefix, "Initializing Extension.........")
-	ctx, cancel := context.WithCancel(context.Background())
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		s := <-sigs
-		cancel()
-		fmt.Println(printPrefix, "Received", s)
-	}()
 	// Register early so Runtime could start in parallel
 	fmt.Println(printPrefix, "Registering Extension to Run Time API Client..........")
-	registerResponse, error := extensionClient.RegisterExtension(ctx)
-	if error != nil {
-		panic(error)
+	registerResponse, err := extensionClient.RegisterExtension(nil)
+	if err != nil {
+		extensionClient.InitError(nil, "Error during extension registration."+err.Error())
 	}
 	fmt.Println(printPrefix, "Succcessfully Registered with Run Time API Client: ", PrettyPrint(registerResponse))
 	// Start HTTP Server before subscription in a goRoutine
 	go httpServer.HTTPServerStart()
 	// Subscribe to Logs API
 	fmt.Println(printPrefix, "Subscribing Extension to Logs API........")
-	subscribeResponse, error := extensionClient.SubscribeToLogsAPI(ctx)
-	if error != nil {
-		panic(error)
+	subscribeResponse, err := extensionClient.SubscribeToLogsAPI(nil)
+	if err != nil {
+		extensionClient.InitError(nil, "Error during Logs API Subscription."+err.Error())
 	}
 	fmt.Println(printPrefix, "Successfully subscribed to Logs API: ", PrettyPrint(string(subscribeResponse)))
 	fmt.Println(printPrefix, "Successfully Intialized Sumo Logic Extension.")
@@ -58,9 +51,9 @@ func processEvents(ctx context.Context) {
 			return
 		default:
 			fmt.Println(printPrefix, "Waiting for Run Time API event...")
-			nextResponse, error := extensionClient.NextEvent(ctx)
-			if error != nil {
-				fmt.Println(printPrefix, "Error:", error.Error())
+			nextResponse, err := extensionClient.NextEvent(ctx)
+			if err != nil {
+				fmt.Println(printPrefix, "Error:", err.Error())
 				fmt.Println(printPrefix, "Exiting")
 				return
 			}
@@ -77,11 +70,19 @@ func processEvents(ctx context.Context) {
 }
 
 func processLogs(ctx context.Context) {
-	for len(httpServer.Queue) != 0 {
+	for len(lambdaapi.Messages) != 0 {
 		// Send the Data to Sumo Logic, Data in JSON Array format already but as a string.
-		data := httpServer.Queue[0]
-		httpServer.Queue = httpServer.Queue[1:]
+		message := <-lambdaapi.Messages
+		response, err := sendtosumo(message)
+		if err != nil {
+			extensionClient.ExitError(ctx, "Send to Sumo Fail"+string(response))
+		}
 	}
+}
+
+func sendtosumo(message string) ([]byte, error) {
+	response, err := extensionClient.MakeRequest(nil, bytes.NewBuffer([]byte(message)), "POST", "https://collectors.au.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ysAXzCTwVXvj4Vw7QgS3nJ8nwOqiFLweEr_2VSqRQTeBz6mq0IQWIhR5G41qh4eQAhGImhQDt6Y75wHL5F8DJoyuush7AXp88rtIa0si-0A==")
+	return response, err
 }
 
 // PrettyPrint is to print the object
@@ -100,9 +101,8 @@ func main() {
 	go func() {
 		s := <-sigs
 		cancel()
-		println(printPrefix, "Received", s)
+		fmt.Println(printPrefix, "Received", s)
 	}()
-
 	//Call Send to Sumo here in a different GO Routine with Context, to find out if the things are done
 	go processLogs(ctx)
 	// Will block until shutdown event is received or cancelled via the context.
