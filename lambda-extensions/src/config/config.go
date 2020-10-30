@@ -8,19 +8,24 @@ import (
 	"strconv"
 	"strings"
 	"utils"
+
+	"github.com/sirupsen/logrus"
 )
 
 // LambdaExtensionConfig config for storing all configurable parameters
 type LambdaExtensionConfig struct {
-	SumoHTTPEndpoint    string
-	EnableFailover      bool
-	S3BucketName        string
-	S3BucketRegion      string
-	MaxRetry            int64
-	AWSLambdaRuntimeAPI string
-	LogTypes            []string
-	FunctionName        string
-	FunctionVersion     string
+	SumoHTTPEndpoint      string
+	EnableFailover        bool
+	S3BucketName          string
+	S3BucketRegion        string
+	MaxRetry              int64
+	AWSLambdaRuntimeAPI   string
+	LogTypes              []string
+	FunctionName          string
+	FunctionVersion       string
+	LogLevel              logrus.Level
+	MaxDataQueueLength    int64
+	MaxConcurrentRequests int64
 }
 
 var validLogTypes = []string{"platform", "function", "extension"}
@@ -48,11 +53,24 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 }
 func (cfg *LambdaExtensionConfig) setDefaults() {
 	maxRetry := os.Getenv("MAX_RETRY")
+	logLevel := os.Getenv("LOG_LEVEL")
+	maxDataQueueLength := os.Getenv("MAX_DATAQUEUE_LENGTH")
+	maxConcurrentRequests := os.Getenv("MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("ENABLE_FAILOVER")
 	logTypes := os.Getenv("LOG_TYPES")
 	if maxRetry == "" {
 		cfg.MaxRetry = 3
 	}
+	if logLevel == "" {
+		cfg.LogLevel = logrus.InfoLevel
+	}
+	if maxDataQueueLength == "" {
+		cfg.MaxDataQueueLength = 20
+	}
+	if maxConcurrentRequests == "" {
+		cfg.MaxConcurrentRequests = 3
+	}
+
 	if enableFailover == "" {
 		cfg.EnableFailover = false
 	}
@@ -64,10 +82,14 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	} else {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
+
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
 	maxRetry := os.Getenv("MAX_RETRY")
+	logLevel := os.Getenv("LOG_LEVEL")
+	maxDataQueueLength := os.Getenv("MAX_DATAQUEUE_LENGTH")
+	maxConcurrentRequests := os.Getenv("MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("ENABLE_FAILOVER")
 	var allErrors []string
 	var err error
@@ -104,6 +126,29 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		cfg.MaxRetry, err = strconv.ParseInt(maxRetry, 10, 32)
 		if err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxRetry: %v", err))
+		}
+
+	}
+	if maxDataQueueLength != "" {
+		cfg.MaxDataQueueLength, err = strconv.ParseInt(maxDataQueueLength, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxDataQueueLength: %v", err))
+		}
+
+	}
+	if maxConcurrentRequests != "" {
+		cfg.MaxConcurrentRequests, err = strconv.ParseInt(maxConcurrentRequests, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxConcurrentRequests: %v", err))
+		}
+
+	}
+	if logLevel != "" {
+		customloglevel, err := strconv.ParseInt(logLevel, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse LogLevel: %v", err))
+		} else {
+			cfg.LogLevel = logrus.Level(customloglevel)
 		}
 
 	}

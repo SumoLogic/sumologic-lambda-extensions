@@ -11,9 +11,10 @@ const (
 	// Base URL for extension
 	logsURL = "2020-08-15/logs"
 	// Subscription Body Constants. Subscribe to platform logs and receive them on ${local_ip}:4243 via HTTP protocol.
-	timeoutMs = 1000
-	maxBytes  = 262144
-	maxItems  = 1000
+	timeoutMs    = 1000
+	maxBytes     = 262144
+	maxItems     = 1000
+	receiverPort = 4243
 )
 
 // SubscribeToLogsAPI is - Subscribe to Logs API to receive the Lambda Logs.
@@ -21,7 +22,7 @@ func (client *Client) SubscribeToLogsAPI(ctx context.Context, logEvents []string
 	URL := client.baseURL + logsURL
 
 	reqBody, err := json.Marshal(map[string]interface{}{
-		"destination": map[string]interface{}{"protocol": "HTTP", "URI": fmt.Sprintf("http://sandbox:%v", ReceiverPort)},
+		"destination": map[string]interface{}{"protocol": "HTTP", "URI": fmt.Sprintf("http://sandbox:%v", receiverPort)},
 		"types":       logEvents,
 		"buffering":   map[string]interface{}{"timeoutMs": timeoutMs, "maxBytes": maxBytes, "maxItems": maxItems},
 	})
