@@ -50,7 +50,7 @@ func main() {
 	logger.Logger.SetOutput(os.Stdout)
 
 	// Creating config and performing validation
-	logger.Logger.SetLevel(logrus.DebugLevel)
+
 	os.Setenv("MAX_RETRY", "3")
 	os.Setenv("SUMO_HTTP_ENDPOINT", "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw==")
 	os.Setenv("S3_BUCKET_NAME", "test-angad")
@@ -58,9 +58,14 @@ func main() {
 	os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "himlambda")
 	os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "Latest$")
 	os.Setenv("ENABLE_FAILOVER", "true")
-	config, _ = cfg.GetConfig()
-	logger.Debug(config)
+	os.Setenv("LOG_LEVEL", "5")
+	os.Setenv("MAX_DATAQUEUE_LENGTH", "10")
+	os.Setenv("MAX_CONCURRENT_REQUESTS", "2")
 
+	config, _ = cfg.GetConfig()
+
+	logger.Logger.SetLevel(config.LogLevel)
+	logger.Debug(config)
 	dataQueue = make(chan []byte, config.MaxDataQueueLength)
 
 	// Start HTTP Server before subscription in a goRoutine

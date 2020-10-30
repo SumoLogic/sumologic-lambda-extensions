@@ -24,8 +24,8 @@ type LambdaExtensionConfig struct {
 	FunctionName          string
 	FunctionVersion       string
 	LogLevel              logrus.Level
-	MaxDataQueueLength    int64
-	MaxConcurrentRequests int64
+	MaxDataQueueLength    int
+	MaxConcurrentRequests int
 }
 
 var validLogTypes = []string{"platform", "function", "extension"}
@@ -130,16 +130,20 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 
 	}
 	if maxDataQueueLength != "" {
-		cfg.MaxDataQueueLength, err = strconv.ParseInt(maxDataQueueLength, 10, 32)
+		customMaxDataQueueLength, err := strconv.ParseInt(maxDataQueueLength, 10, 32)
 		if err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxDataQueueLength: %v", err))
+		} else {
+			cfg.MaxDataQueueLength = int(customMaxDataQueueLength)
 		}
 
 	}
 	if maxConcurrentRequests != "" {
-		cfg.MaxConcurrentRequests, err = strconv.ParseInt(maxConcurrentRequests, 10, 32)
+		customMaxConcurrentRequests, err := strconv.ParseInt(maxConcurrentRequests, 10, 32)
 		if err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxConcurrentRequests: %v", err))
+		} else {
+			cfg.MaxConcurrentRequests = int(customMaxConcurrentRequests)
 		}
 
 	}
@@ -167,10 +171,10 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	return err
 }
 
-// func main() {
-// 	os.Setenv("SUMO_HTTP_ENDPOINT", "http://sumo")
-// 	os.Setenv("ENABLE_FAILOVER", "True")
-// 	os.Setenv("S3_BUCKET_NAME", "blaha")
-// 	cfg, _ := GetConfig()
-// 	fmt.Println(cfg)
-// }
+func main() {
+	os.Setenv("SUMO_HTTP_ENDPOINT", "http://sumo")
+	os.Setenv("ENABLE_FAILOVER", "True")
+	os.Setenv("S3_BUCKET_NAME", "blaha")
+	cfg, _ := GetConfig()
+	fmt.Println(cfg)
+}
