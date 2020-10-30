@@ -63,6 +63,12 @@ func init() {
 		panic(err)
 	}
 	logger.Info("Successfully subscribed to Logs API: ", utils.PrettyPrint(string(subscribeResponse)))
+	nextResponse, err := extensionClient.NextEvent(nil)
+	if err != nil {
+		extensionClient.InitError(nil, "Error during Next API call."+err.Error())
+		panic(err)
+	}
+	logger.Info("Received Invoke event.", utils.PrettyPrint(nextResponse))
 	logger.Info("Successfully Intialized Sumo Logic Extension.")
 
 }
