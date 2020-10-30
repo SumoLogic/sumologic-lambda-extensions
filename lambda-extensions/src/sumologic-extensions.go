@@ -34,6 +34,7 @@ func init() {
 	registerResponse, err := extensionClient.RegisterExtension(nil)
 	if err != nil {
 		extensionClient.InitError(nil, "Error during extension registration."+err.Error())
+		panic(err)
 	}
 	logger.Info("Succcessfully Registered with Run Time API Client: ", utils.PrettyPrint(registerResponse))
 
@@ -41,6 +42,7 @@ func init() {
 	config, err = cfg.GetConfig()
 	if err != nil {
 		extensionClient.InitError(nil, "Error during Fetching Env Variables."+err.Error())
+		panic(err)
 	}
 
 	logger.Logger.SetLevel(config.LogLevel)
@@ -58,6 +60,7 @@ func init() {
 	subscribeResponse, err := extensionClient.SubscribeToLogsAPI(nil, config.LogTypes)
 	if err != nil {
 		extensionClient.InitError(nil, "Error during Logs API Subscription."+err.Error())
+		panic(err)
 	}
 	logger.Info("Successfully subscribed to Logs API: ", utils.PrettyPrint(string(subscribeResponse)))
 	logger.Info("Successfully Intialized Sumo Logic Extension.")

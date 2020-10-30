@@ -65,12 +65,13 @@ func (sc *sumoConsumer) DrainQueue(ctx context.Context) {
 	sc.logger.Debug("Consuming data from dataQueue")
 	counter := 0
 	for i := 0; i < sc.config.MaxConcurrentRequests; i++ {
-		rawmsg := <-sc.dataQueue // read from a closed channel will be the zero value
+		rawmsg, more := <-sc.dataQueue // read from a closed channel will be the zero value
 		if len(rawmsg) > 0 {
 			counter++
 			wg.Add(1)
 			go sc.consumeTask(ctx, wg, rawmsg)
-		} else {
+		}
+		if !more {
 			break
 		}
 	}
