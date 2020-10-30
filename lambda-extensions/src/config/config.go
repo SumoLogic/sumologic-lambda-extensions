@@ -78,7 +78,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 
 	// Todo test url valid
 	if cfg.SumoHTTPEndpoint != "" {
-		_, err = url.ParseRequestURI("http://google.com/")
+		_, err = url.ParseRequestURI(cfg.SumoHTTPEndpoint)
 		if err != nil {
 			allErrors = append(allErrors, "SUMO_HTTP_ENDPOINT is not Valid")
 		}

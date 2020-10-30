@@ -10,6 +10,7 @@ import (
 )
 
 var uploader *s3manager.Uploader
+var sess *session.Session
 
 func init() {
 	os.Setenv("AWS_PROFILE", "prod")
@@ -21,7 +22,7 @@ func init() {
 		awsRegion = os.Getenv("AWS_REGION")
 	}
 
-	var sess = session.Must(session.NewSession(&aws.Config{
+	sess = session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(awsRegion)}))
 
 	// Create an uploader with the session and default options
