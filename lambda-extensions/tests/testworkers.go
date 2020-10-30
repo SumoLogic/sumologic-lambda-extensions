@@ -23,17 +23,23 @@ var producer workers.TaskProducer
 var consumer workers.TaskConsumer
 var config *cfg.LambdaExtensionConfig
 var dataQueue chan []byte
+var quitQueue chan bool
 
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
 func processEvents(ctx context.Context) {
+
+Loop:
 	for {
 		select {
 		case <-ctx.Done():
 			consumer.FlushDataQueue()
 			return
+		case <-quitQueue:
+			break Loop
 		default:
 			consumer.DrainQueue(ctx)
 			time.Sleep(5 * time.Second)
+
 		}
 	}
 }
@@ -85,6 +91,7 @@ func main() {
 			time.Sleep(time.Duration(sleepTime) * time.Second)
 		}
 		close(dataQueue)
+		quitQueue <- true
 		return
 	}()
 	// Will block until shutdown event is received or cancelled via the context.

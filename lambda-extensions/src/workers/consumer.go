@@ -36,17 +36,21 @@ func NewTaskConsumer(consumerQueue chan []byte, config *cfg.LambdaExtensionConfi
 // FlushDataQueue drains the dataqueue commpletely
 func (sc *sumoConsumer) FlushDataQueue() {
 	rawMsgArr := make([][]byte, sc.config.MaxDataQueueLength)
+Loop:
 	for {
-		rawmsg, more := <-sc.dataQueue
-		if !more {
+		//Receives block when the buffer is empty.
+		select {
+		case rawmsg := <-sc.dataQueue:
+			rawMsgArr = append(rawMsgArr, rawmsg)
+		default:
 			err := sc.sumoclient.FlushAll(rawMsgArr)
 			if err != nil {
 				sc.logger.Debugln("Unable to flushing DataQueue", err.Error())
 			}
 			close(sc.dataQueue)
-			return
+			sc.logger.Debugf("DataQueue completely drained")
+			break Loop
 		}
-		rawMsgArr = append(rawMsgArr, rawmsg)
 	}
 
 }
@@ -64,16 +68,19 @@ func (sc *sumoConsumer) DrainQueue(ctx context.Context) {
 	wg := new(sync.WaitGroup)
 	sc.logger.Debug("Consuming data from dataQueue")
 	counter := 0
-	for i := 0; i < sc.config.MaxConcurrentRequests; i++ {
-		rawmsg, more := <-sc.dataQueue // read from a closed channel will be the zero value
-		if len(rawmsg) > 0 {
+Loop:
+	for i := 0; i < sc.config.MaxConcurrentRequests && len(sc.dataQueue) != 0; i++ {
+		//Receives block when the buffer is empty.
+		select {
+		case rawmsg := <-sc.dataQueue:
 			counter++
 			wg.Add(1)
 			go sc.consumeTask(ctx, wg, rawmsg)
+		default:
+			sc.logger.Debugf("DataQueue completely drained")
+			break Loop
 		}
-		if !more {
-			break
-		}
+
 	}
 	sc.logger.Debugf("Waiting for %d consumer to finish their tasks", counter)
 	wg.Wait()

@@ -23,6 +23,7 @@ var producer workers.TaskProducer
 var consumer workers.TaskConsumer
 var config *cfg.LambdaExtensionConfig
 var dataQueue chan []byte
+var quitQueue chan bool
 
 func init() {
 
@@ -49,7 +50,7 @@ func init() {
 	dataQueue = make(chan []byte, config.MaxDataQueueLength)
 
 	// Start HTTP Server before subscription in a goRoutine
-	producer = workers.NewTaskProducer(dataQueue, logger)
+	producer = workers.NewTaskProducer(dataQueue, quitQueue, logger)
 	go producer.Start()
 
 	// Creating SumoTaskConsumer
@@ -80,7 +81,7 @@ func processEvents(ctx context.Context) {
 		case <-ctx.Done():
 			consumer.FlushDataQueue()
 			return
-		default:
+		case <-quitQueue:
 			consumer.DrainQueue(ctx)
 			logger.Info("Waiting for Run Time API event...")
 			nextResponse, err := extensionClient.NextEvent(ctx)
@@ -98,6 +99,8 @@ func processEvents(ctx context.Context) {
 			} else if nextResponse.EventType == lambdaapi.Invoke {
 				logger.Info("Received Invoke event.", utils.PrettyPrint(nextResponse))
 			}
+		default:
+			consumer.DrainQueue(ctx)
 
 		}
 	}
