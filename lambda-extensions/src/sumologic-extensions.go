@@ -48,6 +48,7 @@ func init() {
 
 	logger.Logger.SetLevel(config.LogLevel)
 	dataQueue = make(chan []byte, config.MaxDataQueueLength)
+	quitQueue = make(chan bool, 1)
 
 	// Start HTTP Server before subscription in a goRoutine
 	producer = workers.NewTaskProducer(dataQueue, quitQueue, logger)
@@ -98,9 +99,11 @@ func processEvents(ctx context.Context) {
 				return
 			} else if nextResponse.EventType == lambdaapi.Invoke {
 				logger.Info("Received Invoke event.", utils.PrettyPrint(nextResponse))
+				break
 			}
 		default:
 			consumer.DrainQueue(ctx)
+			break
 
 		}
 	}

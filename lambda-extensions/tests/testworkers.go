@@ -32,14 +32,16 @@ Loop:
 	for {
 		select {
 		case <-ctx.Done():
+			logger.Debug("Flush Queue")
 			consumer.FlushDataQueue()
 			return
 		case <-quitQueue:
+			logger.Debug("Quit Queue")
 			break Loop
 		default:
 			consumer.DrainQueue(ctx)
 			time.Sleep(5 * time.Second)
-
+			break
 		}
 	}
 }
@@ -66,7 +68,7 @@ func main() {
 	os.Setenv("ENABLE_FAILOVER", "true")
 	os.Setenv("LOG_LEVEL", "5")
 	os.Setenv("MAX_DATAQUEUE_LENGTH", "10")
-	os.Setenv("MAX_CONCURRENT_REQUESTS", "2")
+	os.Setenv("MAX_CONCURRENT_REQUESTS", "3")
 
 	config, _ = cfg.GetConfig()
 
@@ -78,22 +80,28 @@ func main() {
 	// producer = workers.NewTaskProducer(dataQueue, logger)
 	// go producer.Start()
 
+	quitQueue = make(chan bool, 1)
+
 	// Creating SumoTaskConsumer
 	consumer = workers.NewTaskConsumer(dataQueue, config, logger)
 
 	go func() {
-		numDataGenerated := 5
+		numDataGenerated := 10
 		largedata := []byte(`[{"time":"2020-10-27T15:36:14.133Z","type":"platform.start","record":{"requestId":"7313c951-e0bc-4818-879f-72d202e24727","version":"$LATEST"}},{"time":"2020-10-27T15:36:14.282Z","type":"platform.logsSubscription","record":{"name":"sumologic-extension","state":"Subscribed","types":["platform","function"]}},{"time":"2020-10-27T15:36:14.283Z","type":"function","record":"2020-10-27T15:36:14.281Z\tundefined\tINFO\tLoading function\n"},{"time":"2020-10-27T15:36:14.283Z","type":"platform.extension","record":{"name":"sumologic-extension","state":"Ready","events":["INVOKE"]}},{"time":"2020-10-27T15:36:14.301Z","type":"function","record":"2020-10-27T15:36:14.285Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue1 = value1\n"},{"time":"2020-10-27T15:36:14.302Z","type":"function","record":"2020-10-27T15:36:14.301Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue2 = value2\n"},{"time":"2020-10-27T15:36:14.302Z","type":"function","record":"2020-10-27T15:36:14.301Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue3 = value3\n"}]`)
-		for i := 0; i < numDataGenerated; i++ {
+		enddata := []byte(`[{"time":"2020-10-27T15:36:14.133Z","type":"platform.end","record":{"requestId":"7313c951-e0bc-4818-879f-72d202e24727","version":"$LATEST"}},{"time":"2020-10-27T15:36:14.282Z","type":"platform.logsSubscription","record":{"name":"sumologic-extension","state":"Subscribed","types":["platform","function"]}},{"time":"2020-10-27T15:36:14.283Z","type":"function","record":"2020-10-27T15:36:14.281Z\tundefined\tINFO\tLoading function\n"},{"time":"2020-10-27T15:36:14.283Z","type":"platform.extension","record":{"name":"sumologic-extension","state":"Ready","events":["INVOKE"]}},{"time":"2020-10-27T15:36:14.301Z","type":"function","record":"2020-10-27T15:36:14.285Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue1 = value1\n"},{"time":"2020-10-27T15:36:14.302Z","type":"function","record":"2020-10-27T15:36:14.301Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue2 = value2\n"},{"time":"2020-10-27T15:36:14.302Z","type":"function","record":"2020-10-27T15:36:14.301Z\t7313c951-e0bc-4818-879f-72d202e24727\tINFO\tvalue3 = value3\n"}]`)
+		for i := 0; i < numDataGenerated-1; i++ {
 			logger.Debugf("Producing data into dataQueue: %d", i+1)
 			dataQueue <- largedata
-			sleepTime := i % 4
+			sleepTime := i%5 + 1
+			logger.Debugf("Waiting for data for %d seconds", sleepTime)
 			time.Sleep(time.Duration(sleepTime) * time.Second)
 		}
+		dataQueue <- enddata
 		close(dataQueue)
 		quitQueue <- true
 		return
 	}()
+
 	// Will block until shutdown event is received or cancelled via the context.
 	processEvents(ctx)
 }
