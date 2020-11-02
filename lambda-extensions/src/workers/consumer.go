@@ -12,7 +12,7 @@ import (
 // TaskConsumer exposing methods every consmumer should implement
 type TaskConsumer interface {
 	FlushDataQueue()
-	DrainQueue(context.Context)
+	DrainQueue(context.Context) int
 }
 
 // sumoConsumer to drain log from dataQueue
@@ -35,7 +35,7 @@ func NewTaskConsumer(consumerQueue chan []byte, config *cfg.LambdaExtensionConfi
 
 // FlushDataQueue drains the dataqueue commpletely
 func (sc *sumoConsumer) FlushDataQueue() {
-	rawMsgArr := make([][]byte, sc.config.MaxDataQueueLength)
+	var rawMsgArr [][]byte
 Loop:
 	for {
 		//Receives block when the buffer is empty.
@@ -45,7 +45,7 @@ Loop:
 		default:
 			err := sc.sumoclient.FlushAll(rawMsgArr)
 			if err != nil {
-				sc.logger.Debugln("Unable to flushing DataQueue", err.Error())
+				sc.logger.Debugln("Unable to flush DataQueue", err.Error())
 			}
 			close(sc.dataQueue)
 			sc.logger.Debugf("DataQueue completely drained")
@@ -64,7 +64,7 @@ func (sc *sumoConsumer) consumeTask(ctx context.Context, wg *sync.WaitGroup, raw
 	return
 }
 
-func (sc *sumoConsumer) DrainQueue(ctx context.Context) {
+func (sc *sumoConsumer) DrainQueue(ctx context.Context) int {
 	wg := new(sync.WaitGroup)
 	sc.logger.Debug("Consuming data from dataQueue")
 	counter := 0
@@ -84,4 +84,5 @@ Loop:
 	}
 	sc.logger.Debugf("Waiting for %d consumer to finish their tasks", counter)
 	wg.Wait()
+	return counter
 }

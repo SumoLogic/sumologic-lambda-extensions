@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"utils"
 
 	"github.com/sirupsen/logrus"
@@ -14,18 +15,23 @@ import (
 
 // LambdaExtensionConfig config for storing all configurable parameters
 type LambdaExtensionConfig struct {
-	SumoHTTPEndpoint      string
-	EnableFailover        bool
-	S3BucketName          string
-	S3BucketRegion        string
-	MaxRetry              int64
-	AWSLambdaRuntimeAPI   string
-	LogTypes              []string
-	FunctionName          string
-	FunctionVersion       string
-	LogLevel              logrus.Level
-	MaxDataQueueLength    int
-	MaxConcurrentRequests int
+	SumoHTTPEndpoint       string
+	EnableFailover         bool
+	S3BucketName           string
+	S3BucketRegion         string
+	NumRetry               int
+	AWSLambdaRuntimeAPI    string
+	LogTypes               []string
+	FunctionName           string
+	FunctionVersion        string
+	LogLevel               logrus.Level
+	MaxDataQueueLength     int
+	MaxConcurrentRequests  int
+	ProcessingSleepTime    time.Duration
+	MaxRetryAttempts       int
+	RetrySleepTime         time.Duration
+	ConnectionTimeoutValue time.Duration
+	MaxDataPayloadSize     int
 }
 
 var validLogTypes = []string{"platform", "function", "extension"}
@@ -34,12 +40,16 @@ var validLogTypes = []string{"platform", "function", "extension"}
 func GetConfig() (*LambdaExtensionConfig, error) {
 
 	config := &LambdaExtensionConfig{
-		SumoHTTPEndpoint:    os.Getenv("SUMO_HTTP_ENDPOINT"),
-		S3BucketName:        os.Getenv("S3_BUCKET_NAME"),
-		S3BucketRegion:      os.Getenv("S3_BUCKET_REGION"),
-		AWSLambdaRuntimeAPI: os.Getenv("AWS_LAMBDA_RUNTIME_API"),
-		FunctionName:        os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
-		FunctionVersion:     os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
+		SumoHTTPEndpoint:       os.Getenv("SUMO_HTTP_ENDPOINT"),
+		S3BucketName:           os.Getenv("S3_BUCKET_NAME"),
+		S3BucketRegion:         os.Getenv("S3_BUCKET_REGION"),
+		AWSLambdaRuntimeAPI:    os.Getenv("AWS_LAMBDA_RUNTIME_API"),
+		FunctionName:           os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
+		FunctionVersion:        os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
+		MaxRetryAttempts:       5,
+		RetrySleepTime:         300 * time.Millisecond,
+		ConnectionTimeoutValue: 10000 * time.Millisecond,
+		MaxDataPayloadSize:     1024 * 1024, // 1 MB
 	}
 
 	(*config).setDefaults()
@@ -52,14 +62,15 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 	return config, nil
 }
 func (cfg *LambdaExtensionConfig) setDefaults() {
-	maxRetry := os.Getenv("MAX_RETRY")
+	numRetry := os.Getenv("NUM_RETRIES")
+	processingSleepTime := os.Getenv("PROCESSING_SLEEP_TIME_MS")
 	logLevel := os.Getenv("LOG_LEVEL")
 	maxDataQueueLength := os.Getenv("MAX_DATAQUEUE_LENGTH")
 	maxConcurrentRequests := os.Getenv("MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("ENABLE_FAILOVER")
 	logTypes := os.Getenv("LOG_TYPES")
-	if maxRetry == "" {
-		cfg.MaxRetry = 3
+	if numRetry == "" {
+		cfg.NumRetry = 3
 	}
 	if logLevel == "" {
 		cfg.LogLevel = logrus.InfoLevel
@@ -82,15 +93,19 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	} else {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
+	if processingSleepTime == "" {
+		cfg.ProcessingSleepTime = 1500 * time.Millisecond
+	}
 
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
-	maxRetry := os.Getenv("MAX_RETRY")
+	numRetry := os.Getenv("NUM_RETRIES")
 	logLevel := os.Getenv("LOG_LEVEL")
 	maxDataQueueLength := os.Getenv("MAX_DATAQUEUE_LENGTH")
 	maxConcurrentRequests := os.Getenv("MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("ENABLE_FAILOVER")
+	processingSleepTime := os.Getenv("PROCESSING_SLEEP_TIME_MS")
 	var allErrors []string
 	var err error
 
@@ -109,7 +124,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if enableFailover != "" {
 		cfg.EnableFailover, err = strconv.ParseBool(enableFailover)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse EnableFailover: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse ENABLE_FAILOVER: %v", err))
 		}
 	}
 
@@ -122,17 +137,28 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		}
 	}
 
-	if maxRetry != "" {
-		cfg.MaxRetry, err = strconv.ParseInt(maxRetry, 10, 32)
+	if numRetry != "" {
+		customNumRetry, err := strconv.ParseInt(numRetry, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxRetry: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse NUM_RETRIES: %v", err))
+		} else {
+			cfg.NumRetry = int(customNumRetry)
 		}
-
 	}
+
+	if processingSleepTime != "" {
+		customProcessingSleepTime, err := strconv.ParseInt(processingSleepTime, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse PROCESSING_SLEEP_TIME_MS: %v", err))
+		} else {
+			cfg.ProcessingSleepTime = time.Duration(customProcessingSleepTime) * time.Millisecond
+		}
+	}
+
 	if maxDataQueueLength != "" {
 		customMaxDataQueueLength, err := strconv.ParseInt(maxDataQueueLength, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxDataQueueLength: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MAX_DATAQUEUE_LENGTH: %v", err))
 		} else {
 			cfg.MaxDataQueueLength = int(customMaxDataQueueLength)
 		}
@@ -141,7 +167,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if maxConcurrentRequests != "" {
 		customMaxConcurrentRequests, err := strconv.ParseInt(maxConcurrentRequests, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MaxConcurrentRequests: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MAX_CONCURRENT_REQUESTS: %v", err))
 		} else {
 			cfg.MaxConcurrentRequests = int(customMaxConcurrentRequests)
 		}
@@ -150,7 +176,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if logLevel != "" {
 		customloglevel, err := strconv.ParseInt(logLevel, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse LogLevel: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse LOG_LEVEL: %v", err))
 		} else {
 			cfg.LogLevel = logrus.Level(customloglevel)
 		}
@@ -160,7 +186,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	// test valid log format type
 	for _, logType := range cfg.LogTypes {
 		if !utils.StringInSlice(strings.TrimSpace(logType), validLogTypes) {
-			allErrors = append(allErrors, fmt.Sprintf("logType %s is unsupported logtype", logType))
+			allErrors = append(allErrors, fmt.Sprintf("logType %s is unsupported", logType))
 		}
 	}
 
@@ -169,12 +195,4 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	}
 
 	return err
-}
-
-func main() {
-	os.Setenv("SUMO_HTTP_ENDPOINT", "http://sumo")
-	os.Setenv("ENABLE_FAILOVER", "True")
-	os.Setenv("S3_BUCKET_NAME", "blaha")
-	cfg, _ := GetConfig()
-	fmt.Println(cfg)
 }

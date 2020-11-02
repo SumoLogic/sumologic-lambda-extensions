@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 	"utils"
 	"workers"
 
@@ -77,32 +78,42 @@ func init() {
 
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
 func processEvents(ctx context.Context) {
+	receivedPayloadAfterInvoke := false
 	for {
 		select {
 		case <-ctx.Done():
 			consumer.FlushDataQueue()
+			close(quitQueue)
 			return
-		case <-quitQueue:
-			consumer.DrainQueue(ctx)
-			logger.Info("Waiting for Run Time API event...")
-			nextResponse, err := extensionClient.NextEvent(ctx)
-			if err != nil {
-				logger.Error("Error:", err.Error())
-				logger.Info("Exiting")
-				return
-			}
-			// Exit if we receive a SHUTDOWN event
-			if nextResponse.EventType == lambdaapi.Shutdown {
-				logger.Info("Received SHUTDOWN event")
-				logger.Info("Exiting")
-				consumer.FlushDataQueue()
-				return
-			} else if nextResponse.EventType == lambdaapi.Invoke {
-				logger.Info("Received Invoke event.", utils.PrettyPrint(nextResponse))
-				break
-			}
 		default:
-			consumer.DrainQueue(ctx)
+			messagedProcessed := consumer.DrainQueue(ctx)
+			if messagedProcessed > 0 {
+				receivedPayloadAfterInvoke = true
+			}
+			if len(dataQueue) == 0 && receivedPayloadAfterInvoke {
+				logger.Info("Waiting for Run Time API event...")
+				nextResponse, err := extensionClient.NextEvent(ctx)
+				if err != nil {
+					logger.Error("Error:", err.Error())
+					logger.Info("Exiting")
+					return
+				}
+				logger.Debugf("Received %s, %v", nextResponse.EventType, nextResponse)
+				// Exit if we receive a SHUTDOWN event
+				if nextResponse.EventType == lambdaapi.Shutdown {
+					logger.Info("Received SHUTDOWN event")
+					consumer.FlushDataQueue()
+					close(quitQueue)
+					return
+				} else if nextResponse.EventType == lambdaapi.Invoke {
+					logger.Info("Received Invoke event.", utils.PrettyPrint(nextResponse))
+					receivedPayloadAfterInvoke = false
+					break
+				}
+			}
+			if len(dataQueue) == 0 && !receivedPayloadAfterInvoke {
+				time.Sleep(config.ProcessingSleepTime) // since shutdown time is 2000ms
+			}
 			break
 
 		}
