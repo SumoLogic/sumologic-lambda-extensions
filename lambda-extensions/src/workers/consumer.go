@@ -5,6 +5,7 @@ import (
 	"context"
 	sumocli "sumoclient"
 	"sync"
+	"utils"
 
 	"github.com/sirupsen/logrus"
 )
@@ -12,7 +13,7 @@ import (
 // TaskConsumer exposing methods every consmumer should implement
 type TaskConsumer interface {
 	FlushDataQueue()
-	DrainQueue(context.Context) int
+	DrainQueue(context.Context, int64) int
 }
 
 // sumoConsumer to drain log from dataQueue
@@ -64,12 +65,12 @@ func (sc *sumoConsumer) consumeTask(ctx context.Context, wg *sync.WaitGroup, raw
 	return
 }
 
-func (sc *sumoConsumer) DrainQueue(ctx context.Context) int {
+func (sc *sumoConsumer) DrainQueue(ctx context.Context, deadtimems int64) int {
 	wg := new(sync.WaitGroup)
-	sc.logger.Debug("Consuming data from dataQueue")
+	//sc.logger.Debug("Consuming data from dataQueue")
 	counter := 0
 Loop:
-	for i := 0; i < sc.config.MaxConcurrentRequests && len(sc.dataQueue) != 0; i++ {
+	for i := 0; i < sc.config.MaxConcurrentRequests && len(sc.dataQueue) != 0 && utils.IsTimeRemaining(deadtimems); i++ {
 		//Receives block when the buffer is empty.
 		select {
 		case rawmsg := <-sc.dataQueue:
@@ -82,7 +83,7 @@ Loop:
 		}
 
 	}
-	sc.logger.Debugf("Waiting for %d consumer to finish their tasks", counter)
+	//sc.logger.Debugf("Waiting for %d consumer to finish their tasks", counter)
 	wg.Wait()
 	return counter
 }

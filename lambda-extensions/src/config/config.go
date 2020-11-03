@@ -94,7 +94,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
 	if processingSleepTime == "" {
-		cfg.ProcessingSleepTime = 1500 * time.Millisecond
+		cfg.ProcessingSleepTime = 15000 * time.Millisecond
 	}
 
 }

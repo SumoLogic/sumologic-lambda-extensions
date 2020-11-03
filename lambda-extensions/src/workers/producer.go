@@ -58,7 +58,7 @@ func (httpServer *httpServer) logsHandler(writer http.ResponseWriter, request *h
 		payload := []byte(reqBody)
 		// Sends to a buffered channel block only when the buffer is full
 		httpServer.dataQueue <- payload
-		httpServer.checkInvokeEnd(payload)
+		//httpServer.checkInvokeEnd(payload)
 	}
 }
 
