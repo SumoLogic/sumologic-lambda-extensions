@@ -88,6 +88,7 @@ func processEvents(ctx context.Context) {
 	DeadlineMs := runTimeAPIInit()
 	var totalMessagedProcessed int
 	startTime := time.Now()
+	// The For loop will continue till we recieve a shutdown event.
 	for {
 		select {
 		case <-ctx.Done():
@@ -98,10 +99,13 @@ func processEvents(ctx context.Context) {
 			currentMessagedProcessed := consumer.DrainQueue(ctx, DeadlineMs)
 			messagesChanged, durationComplete := utils.TotalMessagesCountChanged(totalMessagedProcessed, totalMessagedProcessed+currentMessagedProcessed, config.ProcessingSleepTime, startTime)
 			totalMessagedProcessed = totalMessagedProcessed + currentMessagedProcessed
+			// Call the next event is we reach timeout or no new message are received based on sleep time.
 			if !utils.IsTimeRemaining(DeadlineMs) || durationComplete {
 				logger.Debugf("Total Messages: %v, Current Messages: %v, messages changes: %s, duration Complete: %s, start Time: %s, Sleep Time: %s", totalMessagedProcessed, currentMessagedProcessed, messagesChanged, durationComplete, startTime, config.ProcessingSleepTime)
 				logger.Info("Waiting for Run Time API event...")
+				// This statement will freeze lambda
 				nextResponse := nextEvent(ctx)
+				// Next invoke will start from here
 				logger.Infof("Received Next Event as %s", nextResponse.EventType)
 				DeadlineMs = nextResponse.DeadlineMs
 				if nextResponse.EventType == lambdaapi.Shutdown {
