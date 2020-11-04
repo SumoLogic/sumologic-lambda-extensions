@@ -47,6 +47,7 @@ Loop:
 			err := sc.sumoclient.FlushAll(rawMsgArr)
 			if err != nil {
 				sc.logger.Debugln("Unable to flush DataQueue", err.Error())
+				// TODO: raise alert if flush fails
 			}
 			close(sc.dataQueue)
 			sc.logger.Debugf("DataQueue completely drained")
@@ -61,6 +62,7 @@ func (sc *sumoConsumer) consumeTask(ctx context.Context, wg *sync.WaitGroup, raw
 	err := sc.sumoclient.SendLogs(ctx, rawmsg)
 	if err != nil {
 		sc.logger.Error("Error during Send Logs to Sumo Logic.", err.Error())
+		// TODO: raise alert if send logs fails
 	}
 	return
 }

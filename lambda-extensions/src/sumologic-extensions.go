@@ -24,7 +24,6 @@ var producer workers.TaskProducer
 var consumer workers.TaskConsumer
 var config *cfg.LambdaExtensionConfig
 var dataQueue chan []byte
-var quitQueue chan bool
 
 func init() {
 	logger.Logger.SetOutput(os.Stdout)
@@ -33,28 +32,26 @@ func init() {
 	var err error
 	config, err = cfg.GetConfig()
 	if err != nil {
-		extensionClient.InitError(nil, "Error during Fetching Env Variables."+err.Error())
+		logger.Error("Error during Fetching Env Variables: ", err.Error())
 	}
 
 	logger.Logger.SetLevel(config.LogLevel)
 	dataQueue = make(chan []byte, config.MaxDataQueueLength)
-	quitQueue = make(chan bool, 1)
 
 	// Start HTTP Server before subscription in a goRoutine
-	producer = workers.NewTaskProducer(dataQueue, quitQueue, logger)
+	producer = workers.NewTaskProducer(dataQueue, logger)
 	go producer.Start()
 
 	// Creating SumoTaskConsumer
 	consumer = workers.NewTaskConsumer(dataQueue, config, logger)
 }
 
-func runTimeAPIInit() int64 {
+func runTimeAPIInit() (int64, error) {
 	// Register early so Runtime could start in parallel
 	logger.Debug("Registering Extension to Run Time API Client..........")
 	registerResponse, err := extensionClient.RegisterExtension(nil)
 	if err != nil {
-		extensionClient.InitError(nil, "Error during extension registration."+err.Error())
-		panic(err)
+		return 0, err
 	}
 	logger.Debug("Succcessfully Registered with Run Time API Client: ", utils.PrettyPrint(registerResponse))
 
@@ -62,30 +59,34 @@ func runTimeAPIInit() int64 {
 	logger.Debug("Subscribing Extension to Logs API........")
 	subscribeResponse, err := extensionClient.SubscribeToLogsAPI(nil, config.LogTypes)
 	if err != nil {
-		extensionClient.InitError(nil, "Error during Logs API Subscription."+err.Error())
-		panic(err)
+		return 0, err
 	}
 	logger.Debug("Successfully subscribed to Logs API: ", utils.PrettyPrint(string(subscribeResponse)))
 
 	// Call next to say registration is successful and get the deadtimems
-	nextResponse := nextEvent(nil)
-	return nextResponse.DeadlineMs
+	nextResponse, err := nextEvent(nil)
+	if err != nil {
+		return 0, err
+	}
+	return nextResponse.DeadlineMs, nil
 }
 
-func nextEvent(ctx context.Context) *lambdaapi.NextEventResponse {
+func nextEvent(ctx context.Context) (*lambdaapi.NextEventResponse, error) {
 	nextResponse, err := extensionClient.NextEvent(ctx)
 	if err != nil {
-		logger.Error("Error:", err.Error())
-		logger.Info("Exiting")
-		return nil
+		return nil, err
 	}
 	logger.Debugf("Received EventType: %s as: %v", nextResponse.EventType, nextResponse)
-	return nextResponse
+	return nextResponse, nil
 }
 
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
 func processEvents(ctx context.Context) {
-	DeadlineMs := runTimeAPIInit()
+	DeadlineMs, err := runTimeAPIInit()
+	if err != nil {
+		logger.Error("Error during Registration: ", err.Error())
+		return
+	}
 	var totalMessagedProcessed int
 	startTime := time.Now()
 	// The For loop will continue till we recieve a shutdown event.
@@ -93,7 +94,6 @@ func processEvents(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			consumer.FlushDataQueue()
-			close(quitQueue)
 			return
 		default:
 			currentMessagedProcessed := consumer.DrainQueue(ctx, DeadlineMs)
@@ -104,13 +104,16 @@ func processEvents(ctx context.Context) {
 				logger.Debugf("Total Messages: %v, Current Messages: %v, messages changes: %s, duration Complete: %s, start Time: %s, Sleep Time: %s", totalMessagedProcessed, currentMessagedProcessed, messagesChanged, durationComplete, startTime, config.ProcessingSleepTime)
 				logger.Info("Waiting for Run Time API event...")
 				// This statement will freeze lambda
-				nextResponse := nextEvent(ctx)
+				nextResponse, err := nextEvent(ctx)
+				if err != nil {
+					logger.Error("Error during Next Event call: ", err.Error())
+					return
+				}
 				// Next invoke will start from here
 				logger.Infof("Received Next Event as %s", nextResponse.EventType)
 				DeadlineMs = nextResponse.DeadlineMs
 				if nextResponse.EventType == lambdaapi.Shutdown {
 					consumer.FlushDataQueue()
-					close(quitQueue)
 					return
 				}
 				totalMessagedProcessed = 0
@@ -132,7 +135,12 @@ func main() {
 		cancel()
 		logger.Info("Received", s)
 	}()
-
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Println("Extension failed:", err)
+			nextEvent(ctx)
+		}
+	}()
 	// Will block until shutdown event is received or cancelled via the context.
 	processEvents(ctx)
 	logger.Info("Stopping the Sumo Logic Extension................")

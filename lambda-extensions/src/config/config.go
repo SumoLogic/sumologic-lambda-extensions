@@ -57,7 +57,7 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 	err := (*config).validateConfig()
 
 	if err != nil {
-		return nil, err
+		return config, err
 	}
 	return config, nil
 }
