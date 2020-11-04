@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 	"utils"
 
@@ -160,6 +161,10 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 		item["FunctionName"] = s.config.FunctionName
 		item["FunctionVersion"] = s.config.FunctionVersion
 		item["IsColdStart"] = s.getColdStart()
+		logType, ok := item["type"].(string)
+		if ok && logType == "function" {
+			item["record"] = strings.TrimSpace(item["record"].(string))
+		}
 	}
 }
 

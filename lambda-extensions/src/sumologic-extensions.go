@@ -101,7 +101,7 @@ func processEvents(ctx context.Context) {
 			totalMessagedProcessed = totalMessagedProcessed + currentMessagedProcessed
 			// Call the next event is we reach timeout or no new message are received based on sleep time.
 			if !utils.IsTimeRemaining(DeadlineMs) || durationComplete {
-				logger.Debugf("Total Messages: %v, Current Messages: %v, messages changes: %s, duration Complete: %s, start Time: %s, Sleep Time: %s", totalMessagedProcessed, currentMessagedProcessed, messagesChanged, durationComplete, startTime, config.ProcessingSleepTime)
+				logger.Debugf("Total Messages: %v, Current Messages: %v, messages changes: %v, duration Complete: %v, start Time: %s, Sleep Time: %s", totalMessagedProcessed, currentMessagedProcessed, messagesChanged, durationComplete, startTime, config.ProcessingSleepTime)
 				logger.Info("Waiting for Run Time API event...")
 				// This statement will freeze lambda
 				nextResponse, err := nextEvent(ctx)
