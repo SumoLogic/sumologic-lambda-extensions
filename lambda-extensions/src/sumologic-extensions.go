@@ -101,7 +101,7 @@ func processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			flushData(ctx, DeadlineMs)
+			flushData(ctx, 0)
 			return
 		default:
 			currentMessagedProcessed := consumer.DrainQueue(ctx, DeadlineMs)
@@ -119,11 +119,11 @@ func processEvents(ctx context.Context) {
 				}
 				// Next invoke will start from here
 				logger.Infof("Received Next Event as %s", nextResponse.EventType)
-				DeadlineMs = nextResponse.DeadlineMs
 				if nextResponse.EventType == lambdaapi.Shutdown {
-					flushData(ctx, DeadlineMs)
+					flushData(ctx, 0)
 					return
 				}
+				DeadlineMs = nextResponse.DeadlineMs
 				totalMessagedProcessed = 0
 			}
 			if messagesChanged {
