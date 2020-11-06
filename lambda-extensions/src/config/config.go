@@ -43,7 +43,7 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 		SumoHTTPEndpoint:       os.Getenv("SUMO_HTTP_ENDPOINT"),
 		S3BucketName:           os.Getenv("SUMO_S3_BUCKET_NAME"),
 		S3BucketRegion:         os.Getenv("SUMO_S3_BUCKET_REGION"),
-		AWSLambdaRuntimeAPI:    os.Getenv("SUMO_AWS_LAMBDA_RUNTIME_API"),
+		AWSLambdaRuntimeAPI:    os.Getenv("AWS_LAMBDA_RUNTIME_API"),
 		FunctionName:           os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
 		FunctionVersion:        os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
 		MaxRetryAttempts:       5,

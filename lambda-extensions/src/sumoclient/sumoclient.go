@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 	"utils"
@@ -81,7 +82,11 @@ func (s *sumoLogicClient) getS3KeyName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	key := fmt.Sprintf("%s/%s/%d/%02d/%02d/%02d/%d/%v.gz", s.config.FunctionName, s.config.FunctionVersion,
+	lambdaRegion := os.Getenv("AWS_REGION")
+	// common prefix where all lambda logs will go
+	extensionPrefix := "sumologic-extensions"
+
+	key := fmt.Sprintf("%s/%s/%s/%s/%d/%02d/%02d/%02d/%d/%v.gz", extensionPrefix, lambdaRegion, s.config.FunctionName, s.config.FunctionVersion,
 		currentTime.Year(), currentTime.Month(), currentTime.Day(),
 		currentTime.Hour(), currentTime.Minute(), uniqueID)
 
