@@ -101,6 +101,8 @@ func main() {
 	os.Setenv("SUMO_S3_BUCKET_REGION", "test-angad")
 	os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "himlambda")
 	os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "Latest$")
+	os.Setenv("AWS_LAMBDA_LOG_GROUP_NAME", "/aws/lambda/testfunctionpython")
+	os.Setenv("AWS_LAMBDA_LOG_STREAM_NAME", "2020/11/03/[$LATEST]e5ef8fe91380465fab7da53f5bac50f6")
 	os.Setenv("SUMO_ENABLE_FAILOVER", "true")
 	os.Setenv("SUMO_LOG_LEVEL", "5")
 	os.Setenv("SUMO_MAX_DATAQUEUE_LENGTH", "10")

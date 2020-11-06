@@ -134,6 +134,7 @@ func processEvents(ctx context.Context) {
 }
 
 func main() {
+
 	logger.Info("Starting the Sumo Logic Extension................")
 	ctx, cancel := context.WithCancel(context.Background())
 	sigs := make(chan os.Signal, 1)

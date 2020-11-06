@@ -32,6 +32,7 @@ type LambdaExtensionConfig struct {
 	RetrySleepTime         time.Duration
 	ConnectionTimeoutValue time.Duration
 	MaxDataPayloadSize     int
+	LambdaRegion           string
 }
 
 var validLogTypes = []string{"platform", "function", "extension"}

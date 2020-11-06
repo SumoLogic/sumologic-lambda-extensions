@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 	"utils"
@@ -82,11 +81,10 @@ func (s *sumoLogicClient) getS3KeyName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lambdaRegion := os.Getenv("AWS_REGION")
 	// common prefix where all lambda logs will go
 	extensionPrefix := "sumologic-extensions"
 
-	key := fmt.Sprintf("%s/%s/%s/%s/%d/%02d/%02d/%02d/%d/%v.gz", extensionPrefix, lambdaRegion, s.config.FunctionName, s.config.FunctionVersion,
+	key := fmt.Sprintf("%s/%s/%s/%s/%d/%02d/%02d/%02d/%d/%v.gz", extensionPrefix, s.config.LambdaRegion, s.config.FunctionName, s.config.FunctionVersion,
 		currentTime.Year(), currentTime.Month(), currentTime.Day(),
 		currentTime.Hour(), currentTime.Minute(), uniqueID)
 
@@ -145,14 +143,13 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 				}
 			}
 		}
-		s.logger.Debugf("Total log lines transformed: %d", totalitems)
+		s.logger.Debugf("Total log lines transformed: %d Total errors: %d", totalitems, errorCount)
 
 		// compressing and pushing to S3
 		gzippedBuffer := utils.CompressBuffer(&payload)
-		s.failoverHandler(gzippedBuffer)
-
-		if errorCount > 0 {
-			err = fmt.Errorf("Total errors during flushing to S3: %d", errorCount)
+		senderr := s.failoverHandler(gzippedBuffer)
+		if errorCount > 0 || senderr != nil {
+			err = fmt.Errorf("Total errors during flushing to S3: %d SendErr: %v", errorCount, senderr)
 		}
 	} else {
 		s.logger.Debugln("FailOver is not enabled.")
@@ -177,14 +174,20 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 	for _, item := range msg {
 		// item["FunctionName"] = s.config.FunctionName
 		// item["FunctionVersion"] = s.config.FunctionVersion
-		item["logGroup"] = os.Getenv("AWS_LAMBDA_LOG_GROUP_NAME")
-		item["logStream"] = os.Getenv("AWS_LAMBDA_LOG_STREAM_NAME")
+		// creating loggroup/logstream as they are not available in Env
+		currentTime := time.Now().UTC()
+		currentDate := fmt.Sprintf("%d/%02d/%02d", currentTime.Year(), currentTime.Month(), currentTime.Day())
+		item["logGroup"] = fmt.Sprintf("/aws/lambda/%s", s.config.FunctionName)
+		item["logStream"] = fmt.Sprintf("%s/[%s]sumologic-extension", currentDate, s.config.FunctionVersion)
 		item["IsColdStart"] = s.getColdStart()
 		logType, ok := item["type"].(string)
 		if ok && logType == "function" {
-			item["record"] = strings.TrimSpace(item["record"].(string))
-		}
-		if ok && logType == "platform.report" {
+			message, ok := item["record"].(string)
+			if ok {
+				delete(item, "record")
+			}
+			item["message"] = strings.TrimSpace(message)
+		} else if ok && logType == "platform.report" {
 			s.createCWLogLinee(item)
 		}
 	}
