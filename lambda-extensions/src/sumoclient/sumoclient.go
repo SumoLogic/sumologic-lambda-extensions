@@ -159,16 +159,33 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 	}
 	return err
 }
+func (s *sumoLogicClient) createCWLogLinee(item map[string]interface{}) {
+
+	message, ok := item["record"].(map[string]interface{})
+	if ok {
+		delete(item, "record")
+	}
+	// Todo convert this to struct
+	metric := message["metrics"].(map[string]interface{})
+	cwMessageLine := fmt.Sprintf("REPORT RequestId: %v	Duration: %v ms	Billed Duration: %v ms 	Memory Size: %v MB	Max Memory Used: %v MB",
+		message["requestId"], metric["durationMs"], metric["billedDurationMs"], metric["memorySizeMB"], metric["maxMemoryUsedMB"])
+	item["message"] = cwMessageLine
+}
 
 func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 	s.logger.Debugln("Enhancing logs")
 	for _, item := range msg {
-		item["FunctionName"] = s.config.FunctionName
-		item["FunctionVersion"] = s.config.FunctionVersion
+		// item["FunctionName"] = s.config.FunctionName
+		// item["FunctionVersion"] = s.config.FunctionVersion
+		item["logGroup"] = os.Getenv("AWS_LAMBDA_LOG_GROUP_NAME")
+		item["logStream"] = os.Getenv("AWS_LAMBDA_LOG_STREAM_NAME")
 		item["IsColdStart"] = s.getColdStart()
 		logType, ok := item["type"].(string)
 		if ok && logType == "function" {
 			item["record"] = strings.TrimSpace(item["record"].(string))
+		}
+		if ok && logType == "platform.report" {
+			s.createCWLogLinee(item)
 		}
 	}
 }
