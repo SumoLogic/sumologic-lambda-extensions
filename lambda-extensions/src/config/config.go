@@ -41,9 +41,9 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 
 	config := &LambdaExtensionConfig{
 		SumoHTTPEndpoint:       os.Getenv("SUMO_HTTP_ENDPOINT"),
-		S3BucketName:           os.Getenv("S3_BUCKET_NAME"),
-		S3BucketRegion:         os.Getenv("S3_BUCKET_REGION"),
-		AWSLambdaRuntimeAPI:    os.Getenv("AWS_LAMBDA_RUNTIME_API"),
+		S3BucketName:           os.Getenv("SUMO_S3_BUCKET_NAME"),
+		S3BucketRegion:         os.Getenv("SUMO_S3_BUCKET_REGION"),
+		AWSLambdaRuntimeAPI:    os.Getenv("SUMO_AWS_LAMBDA_RUNTIME_API"),
 		FunctionName:           os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
 		FunctionVersion:        os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
 		MaxRetryAttempts:       5,
@@ -62,15 +62,15 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 	return config, nil
 }
 func (cfg *LambdaExtensionConfig) setDefaults() {
-	numRetry := os.Getenv("NUM_RETRIES")
-	processingSleepTime := os.Getenv("PROCESSING_SLEEP_TIME_MS")
-	logLevel := os.Getenv("LOG_LEVEL")
-	maxDataQueueLength := os.Getenv("MAX_DATAQUEUE_LENGTH")
-	maxConcurrentRequests := os.Getenv("MAX_CONCURRENT_REQUESTS")
-	enableFailover := os.Getenv("ENABLE_FAILOVER")
-	logTypes := os.Getenv("LOG_TYPES")
+	numRetry := os.Getenv("SUMO_NUM_RETRIES")
+	processingSleepTime := os.Getenv("SUMO_PROCESSING_SLEEP_TIME_MS")
+	logLevel := os.Getenv("SUMO_LOG_LEVEL")
+	maxDataQueueLength := os.Getenv("SUMO_MAX_DATAQUEUE_LENGTH")
+	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
+	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
+	logTypes := os.Getenv("SUMO_LOG_TYPES")
 	if numRetry == "" {
-		cfg.NumRetry = 3
+		cfg.NumRetry = 0
 	}
 	if logLevel == "" {
 		cfg.LogLevel = logrus.InfoLevel
@@ -94,18 +94,18 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
 	if processingSleepTime == "" {
-		cfg.ProcessingSleepTime = 15000 * time.Millisecond
+		cfg.ProcessingSleepTime = 0 * time.Millisecond
 	}
 
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
-	numRetry := os.Getenv("NUM_RETRIES")
-	logLevel := os.Getenv("LOG_LEVEL")
-	maxDataQueueLength := os.Getenv("MAX_DATAQUEUE_LENGTH")
-	maxConcurrentRequests := os.Getenv("MAX_CONCURRENT_REQUESTS")
-	enableFailover := os.Getenv("ENABLE_FAILOVER")
-	processingSleepTime := os.Getenv("PROCESSING_SLEEP_TIME_MS")
+	numRetry := os.Getenv("SUMO_NUM_RETRIES")
+	logLevel := os.Getenv("SUMO_LOG_LEVEL")
+	maxDataQueueLength := os.Getenv("SUMO_MAX_DATAQUEUE_LENGTH")
+	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
+	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
+	processingSleepTime := os.Getenv("SUMO_PROCESSING_SLEEP_TIME_MS")
 	var allErrors []string
 	var err error
 
@@ -124,23 +124,23 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if enableFailover != "" {
 		cfg.EnableFailover, err = strconv.ParseBool(enableFailover)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse ENABLE_FAILOVER: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_ENABLE_FAILOVER: %v", err))
 		}
 	}
 
 	if cfg.EnableFailover == true {
 		if cfg.S3BucketName == "" {
-			allErrors = append(allErrors, "S3_BUCKET_NAME not set in environment variable")
+			allErrors = append(allErrors, "SUMO_S3_BUCKET_NAME not set in environment variable")
 		}
 		if cfg.S3BucketRegion == "" {
-			allErrors = append(allErrors, "S3_BUCKET_REGION not set in environment variable")
+			allErrors = append(allErrors, "SUMO_S3_BUCKET_REGION not set in environment variable")
 		}
 	}
 
 	if numRetry != "" {
 		customNumRetry, err := strconv.ParseInt(numRetry, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse NUM_RETRIES: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_NUM_RETRIES: %v", err))
 		} else {
 			cfg.NumRetry = int(customNumRetry)
 		}
@@ -149,7 +149,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if processingSleepTime != "" {
 		customProcessingSleepTime, err := strconv.ParseInt(processingSleepTime, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse PROCESSING_SLEEP_TIME_MS: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_PROCESSING_SLEEP_TIME_MS: %v", err))
 		} else {
 			cfg.ProcessingSleepTime = time.Duration(customProcessingSleepTime) * time.Millisecond
 		}
@@ -158,7 +158,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if maxDataQueueLength != "" {
 		customMaxDataQueueLength, err := strconv.ParseInt(maxDataQueueLength, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MAX_DATAQUEUE_LENGTH: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_MAX_DATAQUEUE_LENGTH: %v", err))
 		} else {
 			cfg.MaxDataQueueLength = int(customMaxDataQueueLength)
 		}
@@ -167,7 +167,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if maxConcurrentRequests != "" {
 		customMaxConcurrentRequests, err := strconv.ParseInt(maxConcurrentRequests, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse MAX_CONCURRENT_REQUESTS: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_MAX_CONCURRENT_REQUESTS: %v", err))
 		} else {
 			cfg.MaxConcurrentRequests = int(customMaxConcurrentRequests)
 		}
@@ -176,7 +176,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	if logLevel != "" {
 		customloglevel, err := strconv.ParseInt(logLevel, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse LOG_LEVEL: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_LOG_LEVEL: %v", err))
 		} else {
 			cfg.LogLevel = logrus.Level(customloglevel)
 		}
