@@ -73,6 +73,14 @@ func processEvents(ctx context.Context) {
 	}
 }
 
+func flushData(ctx context.Context, DeadlineMs int64) {
+	if config.EnableFailover {
+		consumer.FlushDataQueue()
+	} else {
+		consumer.DrainQueue(ctx, DeadlineMs)
+	}
+}
+
 func main() {
 	var err error
 	ctx, cancel := context.WithCancel(context.Background())
@@ -139,4 +147,9 @@ func main() {
 	fmt.Println("\nretry scenario + failover\n======================")
 	config.SumoHTTPEndpoint = "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw="
 	fmt.Println(client.SendLogs(ctx, logs))
+
+	config.EnableFailover = false
+	dataQueue <- largedata
+	// testing sumo if no s3 failover
+	flushData(ctx, 10*1000)
 }

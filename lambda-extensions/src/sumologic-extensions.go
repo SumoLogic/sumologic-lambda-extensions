@@ -80,6 +80,14 @@ func nextEvent(ctx context.Context) (*lambdaapi.NextEventResponse, error) {
 	return nextResponse, nil
 }
 
+func flushData(ctx context.Context, DeadlineMs int64) {
+	if config.EnableFailover {
+		consumer.FlushDataQueue()
+	} else {
+		consumer.DrainQueue(ctx, DeadlineMs)
+	}
+}
+
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
 func processEvents(ctx context.Context) {
 	DeadlineMs, err := runTimeAPIInit()
@@ -93,7 +101,7 @@ func processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			consumer.FlushDataQueue()
+			flushData(ctx, DeadlineMs)
 			return
 		default:
 			currentMessagedProcessed := consumer.DrainQueue(ctx, DeadlineMs)
@@ -113,7 +121,7 @@ func processEvents(ctx context.Context) {
 				logger.Infof("Received Next Event as %s", nextResponse.EventType)
 				DeadlineMs = nextResponse.DeadlineMs
 				if nextResponse.EventType == lambdaapi.Shutdown {
-					consumer.FlushDataQueue()
+					flushData(ctx, DeadlineMs)
 					return
 				}
 				totalMessagedProcessed = 0
