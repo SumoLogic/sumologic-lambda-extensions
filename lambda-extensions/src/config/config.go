@@ -174,11 +174,11 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 
 	}
 	if logLevel != "" {
-		customloglevel, err := strconv.ParseInt(logLevel, 10, 32)
+		customloglevel, err := logrus.ParseLevel(logLevel)
 		if err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_LOG_LEVEL: %v", err))
 		} else {
-			cfg.LogLevel = logrus.Level(customloglevel)
+			cfg.LogLevel = customloglevel
 		}
 
 	}

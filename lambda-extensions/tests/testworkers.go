@@ -105,6 +105,7 @@ func main() {
 	os.Setenv("SUMO_LOG_LEVEL", "5")
 	os.Setenv("SUMO_MAX_DATAQUEUE_LENGTH", "10")
 	os.Setenv("SUMO_MAX_CONCURRENT_REQUESTS", "3")
+	os.Setenv("SUMO_LOG_LEVEL", "DEBUG")
 
 	fmt.Println("\nvalidating config\n======================")
 	config, err = cfg.GetConfig()
@@ -144,12 +145,17 @@ func main() {
 	}
 	fmt.Println(client.FlushAll(multiplelargedata))
 
+	fmt.Println("\ntesting report data conversion\n================")
+	var reportLogs = []byte(`[{"record":{"metrics":{"billedDurationMs":120000,"durationMs":122066.85,"maxMemoryUsedMB":74,"memorySizeMB":128},"requestId":"fcea12d9-e0b4-43b2-a9a2-04d04519539f"},"time":"2020-11-02T20:33:16.536Z","type":"platform.report"}]`)
+	fmt.Println(client.SendLogs(ctx, reportLogs))
+
+	fmt.Println("\ntesting sumo if no s3 failover\n=================")
+	config.EnableFailover = false
+	dataQueue <- largedata
+	flushData(ctx, 10*1000)
+
 	fmt.Println("\nretry scenario + failover\n======================")
 	config.SumoHTTPEndpoint = "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw="
 	fmt.Println(client.SendLogs(ctx, logs))
 
-	config.EnableFailover = false
-	dataQueue <- largedata
-	// testing sumo if no s3 failover
-	flushData(ctx, 10*1000)
 }
