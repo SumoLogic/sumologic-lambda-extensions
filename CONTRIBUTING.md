@@ -23,7 +23,7 @@ First of all, thanks for contributing!. Before contributing please read the [COD
 * Always use `go mod tidy` to clean up unwanted dependencies.
 * To generate the binary use below command
 
-  ```go build -o target/extensions/sumologic-extension lambda-extensions/sumologic-extensions.go```
+  ```go build -o target/extensions/sumologic-extension lambda-extensions/sumologic-extension.go```
 
 ## Unit Testing
 
