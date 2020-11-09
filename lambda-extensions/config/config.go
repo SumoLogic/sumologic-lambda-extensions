@@ -34,6 +34,7 @@ type LambdaExtensionConfig struct {
 	ConnectionTimeoutValue time.Duration
 	MaxDataPayloadSize     int
 	LambdaRegion           string
+	SourceCategoryOverride string
 }
 
 var validLogTypes = []string{"platform", "function", "extension"}
@@ -49,6 +50,7 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 		FunctionName:           os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
 		FunctionVersion:        os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
 		LambdaRegion:           os.Getenv("AWS_REGION"),
+		SourceCategoryOverride: os.Getenv("SOURCE_CATEGORY_OVERRIDE"),
 		MaxRetryAttempts:       5,
 		RetrySleepTime:         300 * time.Millisecond,
 		ConnectionTimeoutValue: 10000 * time.Millisecond,
@@ -109,6 +111,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	processingSleepTime := os.Getenv("SUMO_PROCESSING_SLEEP_TIME_MS")
+
 	var allErrors []string
 	var err error
 

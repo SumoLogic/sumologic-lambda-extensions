@@ -1,10 +1,5 @@
+#!/bin/bash -x
 # Assuming the zip.sh script is run from inside the scripts folder
-jqCmd=$(jq --version)
-status=$?
-if [ $status -eq 127 ]; then
-	echo "Please install jq (Mac: brew install jq Or Ubuntu: apt-get install jq)"
-  exit 1
-fi
 
 # clean up of old target directories
 cd ..
@@ -44,24 +39,25 @@ echo "Create lambda Layer from the new ZIP file in the provided AWS_PROFILE aws 
 if [[ -z "${AWS_PROFILE}" ]]; then
   export AWS_PROFILE="personal"
 fi
-declare -a AWS_REGIONS=("us-east-1")
+
+AWS_REGIONS=(
+  us-east-1
+  us-east-2
+)
 
 echo "Using AWS_PROFILE: ${AWS_PROFILE}"
 
 # We have layer name as sumologic-extension. Please change name for local testing.
 export layer_name="sumologic-extension"
 
-for region in "${AWS_REGIONS[@]}"
-do
-    layer_arn=$(aws lambda publish-layer-version --layer-name ${layer_name} \
+for region in "${AWS_REGIONS[@]}"; do
+    layer_version=$(aws lambda publish-layer-version --layer-name ${layer_name} \
     --description "The SumoLogic Extension collects lambda logs and send it to Sumo Logic." \
-    --license-info "MIT" --zip-file fileb://$(pwd)/$TARGET_DIR/zip/sumologic-extension.zip \
-    --profile ${AWS_PROFILE} --region ${region} | jq -r .LayerVersionArn)
-    echo "${layer_arn} Layer deployed to Region ${region}"
+    --license-info "Apache-2.0" --zip-file fileb://$(pwd)/$TARGET_DIR/zip/sumologic-extension.zip \
+    --profile ${AWS_PROFILE} --region ${region} --output text --query Version )
+    echo "${layer_version} Layer deployed to Region ${region}"
 
-    # releasing prod version
-    # aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-prod --version-number $(echo -n $layer_arn | tail -c 1) --principal '*' --action lambda:GetLayerVersion --region ${region}
-
-    # giving permission to content
-    # aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-dev --version-number $(echo -n $layer_arn | tail -c 1) --principal '956882708938' --action lambda:GetLayerVersion --region ${region}
+    echo "Setting public permissions for layer version: $layer_version"
+    # aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-prod --version-number $layer_version --principal '*' --action lambda:GetLayerVersion --region ${region}
+    aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-dev --version-number $layer_version --principal '956882708938' --action lambda:GetLayerVersion --region ${region}
 done

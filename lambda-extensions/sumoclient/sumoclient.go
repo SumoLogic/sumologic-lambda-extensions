@@ -62,16 +62,13 @@ func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*
 		return nil, err
 	}
 	request.Header.Add("Content-Encoding", "gzip")
-	request.Header.Add("X-Sumo-Client", "sumologic-lambda-extension")
-	// if s.config.sumoName != "" {
-	//     request.Header.Add("X-Sumo-Name", s.config.sumoName)
-	// }
-	// if s.config.sumoHost != "" {
-	//     request.Header.Add("X-Sumo-Host", s.config.sumoHost)
-	// }
-	// if s.config.sumoCategory != "" {
-	//     request.Header.Add("X-Sumo-Category", s.config.sumoCategory)
-	// }
+	request.Header.Add("X-Sumo-Client", config.SumoLogicExtensionLayerVersionSuffix)
+	// This is added to make it compatible with AWS Lambda and AWS Lambda ULM App
+	request.Header.Add("X-Sumo-Name", s.getLogStream())
+	request.Header.Add("X-Sumo-Host", s.getLogGroup())
+	if s.config.SourceCategoryOverride != "" {
+		request.Header.Add("X-Sumo-Category", s.config.SourceCategoryOverride)
+	}
 	response, err := s.httpClient.Do(request)
 	return response, err
 }
@@ -84,9 +81,8 @@ func (s *sumoLogicClient) getS3KeyName() (string, error) {
 		return "", err
 	}
 	// common prefix where all lambda logs will go
-	extensionPrefix := "sumologic-extensions"
 
-	key := fmt.Sprintf("%s/%s/%s/%s/%d/%02d/%02d/%02d/%d/%v.gz", extensionPrefix, s.config.LambdaRegion, s.config.FunctionName, s.config.FunctionVersion,
+	key := fmt.Sprintf("%s/%s/%s/%s/%d/%02d/%02d/%02d/%d/%v.gz", config.ExtensionName, s.config.LambdaRegion, s.config.FunctionName, s.config.FunctionVersion,
 		currentTime.Year(), currentTime.Month(), currentTime.Day(),
 		currentTime.Hour(), currentTime.Minute(), uniqueID)
 
@@ -158,6 +154,7 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 	}
 	return err
 }
+
 func (s *sumoLogicClient) createCWLogLinee(item map[string]interface{}) {
 
 	message, ok := item["record"].(map[string]interface{})
@@ -171,17 +168,29 @@ func (s *sumoLogicClient) createCWLogLinee(item map[string]interface{}) {
 	item["message"] = cwMessageLine
 }
 
+func (s *sumoLogicClient) getLogGroup() string {
+	return fmt.Sprintf("/aws/lambda/%s", s.config.FunctionName)
+}
+
+func (s *sumoLogicClient) getLogStream() string {
+	currentTime := time.Now().UTC()
+	currentDate := fmt.Sprintf("%d/%02d/%02d", currentTime.Year(), currentTime.Month(), currentTime.Day())
+	return fmt.Sprintf("%s/[%s]%s", currentDate, s.config.FunctionVersion, config.ExtensionName)
+}
+
 func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 	s.logger.Debugln("Enhancing logs")
 	for _, item := range msg {
 		// item["FunctionName"] = s.config.FunctionName
 		// item["FunctionVersion"] = s.config.FunctionVersion
-		// creating loggroup/logstream as they are not available in Env
-		currentTime := time.Now().UTC()
-		currentDate := fmt.Sprintf("%d/%02d/%02d", currentTime.Year(), currentTime.Month(), currentTime.Day())
-		item["logGroup"] = fmt.Sprintf("/aws/lambda/%s", s.config.FunctionName)
-		item["logStream"] = fmt.Sprintf("%s/[%s]sumologic-extension", currentDate, s.config.FunctionVersion)
+		// creating loggroup/logstream as they are not available in Env.
+		// This is done to make it compatible with AWS Observability
+
+		item["logGroup"] = s.getLogGroup()
+		item["logStream"] = s.getLogStream()
+
 		item["IsColdStart"] = s.getColdStart()
+		item["LayerVersion"] = config.SumoLogicExtensionLayerVersionSuffix
 		logType, ok := item["type"].(string)
 		if ok && logType == "function" {
 			message, ok := item["record"].(string)
