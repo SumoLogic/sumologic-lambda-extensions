@@ -47,6 +47,7 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 		AWSLambdaRuntimeAPI:    os.Getenv("AWS_LAMBDA_RUNTIME_API"),
 		FunctionName:           os.Getenv("AWS_LAMBDA_FUNCTION_NAME"),
 		FunctionVersion:        os.Getenv("AWS_LAMBDA_FUNCTION_VERSION"),
+		LambdaRegion:           os.Getenv("AWS_REGION"),
 		MaxRetryAttempts:       5,
 		RetrySleepTime:         300 * time.Millisecond,
 		ConnectionTimeoutValue: 10000 * time.Millisecond,
