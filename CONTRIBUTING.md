@@ -33,9 +33,9 @@ First of all, thanks for contributing!. Before contributing please read the [COD
   * Change the *AWS_PROFILE* environment variable.
   * Update the layer version in *config/version.go*.
   * Use below command for creating and deploying layer
-
-    cd scripts/
-    sh zip.sh
+  
+        cd scripts/
+        sh zip.sh
 
 
 ## Integration Testing (Manual)
