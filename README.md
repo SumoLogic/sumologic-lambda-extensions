@@ -1,4 +1,7 @@
-# sumologic-lambda-extensions
+# sumologic-lambda-extensions 
+
+![build-and-test](https://github.com/SumoLogic/sumologic-lambda-extensions/workflows/build-and-test/badge.svg)
+  
 AWS Lambda Extensions lets you integrate Lambda with your favorite tools for monitoring, observability, security, and governance. Extensions enable you and your preferred tooling vendors to plug into Lambda’s lifecycle and integrate more deeply into the Lambda execution environment.
 
 This repository contains SumoLogic AWS Lambda extension.
