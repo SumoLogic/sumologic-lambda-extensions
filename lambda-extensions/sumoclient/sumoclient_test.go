@@ -1,4 +1,4 @@
-package tests
+package sumoclient
 
 import (
 	"context"
@@ -7,8 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 	"testing"
-
-	sumocli "github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/sumoclient"
 
 	cfg "github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/config"
 
@@ -64,7 +62,7 @@ func TestSumoClient(t *testing.T) {
 	logger.Logger.SetLevel(config.LogLevel)
 
 	t.Log("\nsuccess scenario\n======================")
-	client := sumocli.NewLogSenderClient(logger, config)
+	client := NewLogSenderClient(logger, config)
 	var logs = []byte("[{\"key\": \"value\"}]")
 	assertEqual(t, client.SendLogs(ctx, logs), nil, "SendLogs should not generate error")
 
@@ -88,7 +86,7 @@ func TestSumoClient(t *testing.T) {
 	// t.Log("\ntesting sumo if no s3 failover\n=================")
 	// config.EnableFailover = false
 	// dataQueue <- largedata
-	// sumocli.flushData(ctx, 10*1000)
+	// flushData(ctx, 10*1000)
 
 	t.Log("\nretry scenario + failover\n======================")
 	config.SumoHTTPEndpoint = "https://collectors.sumologic.com/receiver/v1/http/ZaVnC4dhaV2ZZls3q0ihtegxCvl_lvlDNWoNAvTS5BKSjpuXIOGYgu7QZZSd-hkZlub49iL_U0XyIXBJJjnAbl6QK_JX0fYVb_T4KLEUSbvZ6MUArRavYw="

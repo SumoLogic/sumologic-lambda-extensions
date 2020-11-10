@@ -13,8 +13,6 @@ var uploader *s3manager.Uploader
 var sess *session.Session
 
 func init() {
-	os.Setenv("AWS_PROFILE", "prod")
-	os.Setenv("AWS_REGION", "us-east-1")
 
 	var awsRegion, found = os.LookupEnv("SUMO_S3_BUCKET_REGION")
 
