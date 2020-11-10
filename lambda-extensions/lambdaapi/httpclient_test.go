@@ -57,9 +57,9 @@ func TestNewClient(t *testing.T) {
 	assertEqual(t, client.extensionName, extensionName, "Extension Name does not match the expected name")
 }
 
-func createTestClient(t *testing.T) *Client {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assertEqual(t, r.Method, http.MethodGet, "Method is not GET")
+func createTestServer(t *testing.T) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assertEqual(t, r.Method, http.MethodGet, "Method is not GET.")
 		defer r.Body.Close()
 
 		w.Header().Add(extensionIdentiferHeader, "test-sumo-id")
@@ -67,30 +67,35 @@ func createTestClient(t *testing.T) *Client {
 		respBytes, _ := json.Marshal(NextEventResponse{})
 		_, _ = w.Write(respBytes)
 	}))
-	defer srv.Close()
-	return NewClient(srv.URL[7:], extensionName)
 }
 
-func TestMakeRequest(t *testing.T) {
-	client := createTestClient(t)
+func runMakeRequest(ctx context.Context, t *testing.T) ([]byte, *Client, error) {
+	server := createTestServer(t)
+	defer server.Close()
+
+	client := NewClient(server.URL[7:], extensionName)
 
 	URL := client.baseURL + extensionURL + "event/next"
 	headers := map[string]string{
 		extensionNameHeader: client.extensionName,
 	}
+	var response []byte
+	var err error
 
-	response, err := client.MakeRequest(headers, bytes.NewBuffer(nil), "GET", URL)
+	if ctx != nil {
+		response, err = client.MakeRequestWithContext(ctx, headers, bytes.NewBuffer(nil), "GET", URL)
+	} else {
+		response, err = client.MakeRequest(headers, bytes.NewBuffer(nil), "GET", URL)
+	}
+	return response, client, err
+}
+
+func TestMakeRequest(t *testing.T) {
+	response, client, err := runMakeRequest(nil, t)
 	commonAsserts(t, client, response, err)
 }
 
 func TestMakeRequestWithContext(t *testing.T) {
-	client := createTestClient(t)
-
-	URL := client.baseURL + extensionURL + "event/next"
-	headers := map[string]string{
-		extensionNameHeader: client.extensionName,
-	}
-
-	response, err := client.MakeRequestWithContext(context.Background(), headers, bytes.NewBuffer(nil), "GET", URL)
+	response, client, err := runMakeRequest(context.Background(), t)
 	commonAsserts(t, client, response, err)
 }
