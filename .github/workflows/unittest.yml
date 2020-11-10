@@ -18,7 +18,7 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout code
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
 
       - name: Setup Go environment
         uses: actions/setup-go@v2
@@ -40,9 +40,7 @@ jobs:
           go-version: ${{ matrix.go }}
 
       - name: Checkout code
-      - uses: actions/checkout@v2
+        uses: actions/checkout@v2
 
       - name: Run Unit Tests
         run: go test  ./...
-
-
