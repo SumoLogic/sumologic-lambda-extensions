@@ -14,7 +14,7 @@ func TestSubscribeToLogsAPI(t *testing.T) {
 		assertNotEmpty(t, r.Header.Get(extensionNameHeader), "Extension Name Header not present")
 
 		reqBytes, err := ioutil.ReadAll(r.Body)
-		assertNoError(t, err, "Received error in request")
+		assertNoError(t, err, "Received error")
 		defer r.Body.Close()
 		assertNotEmpty(t, reqBytes, "Received error in request")
 
@@ -27,8 +27,9 @@ func TestSubscribeToLogsAPI(t *testing.T) {
 
 	// Without Context
 	response, err := client.SubscribeToLogsAPI(nil, []string{"platform", "function", "extension"})
+	commonAsserts(t, client, response, err)
 
 	// With Context
 	response, err = client.SubscribeToLogsAPI(context.Background(), []string{"platform", "function", "extension"})
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 }
