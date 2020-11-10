@@ -15,7 +15,7 @@ func TestRegisterExtension(t *testing.T) {
 		assertNotEmpty(t, r.Header.Get(extensionNameHeader), "Extension Name Header not present")
 
 		reqBytes, err := ioutil.ReadAll(r.Body)
-		assertNoError(t, err, "Received error in request")
+		assertNoError(t, err, "Received error while reading request")
 		defer r.Body.Close()
 		assertNotEmpty(t, reqBytes, "Received error in request")
 
@@ -30,10 +30,11 @@ func TestRegisterExtension(t *testing.T) {
 
 	// Without Context
 	response, err := client.RegisterExtension(nil)
+	commonAsserts(t, client, response, err)
 
 	// With Context
 	response, err = client.RegisterExtension(context.Background())
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 }
 
 func TestNextEvent(t *testing.T) {
@@ -58,11 +59,11 @@ func TestNextEvent(t *testing.T) {
 
 	// Without Context
 	response, err := client.NextEvent(nil)
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 
 	// With Context
 	response, err = client.NextEvent(context.Background())
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 }
 
 func TestInitError(t *testing.T) {
@@ -88,11 +89,11 @@ func TestInitError(t *testing.T) {
 
 	// Without Context
 	response, err := client.InitError(nil, "INIT ERROR")
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 
 	// With Context
 	response, err = client.InitError(context.Background(), "INIT ERROR")
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 }
 
 func TestExitError(t *testing.T) {
@@ -118,9 +119,9 @@ func TestExitError(t *testing.T) {
 
 	// Without Context
 	response, err := client.ExitError(nil, "EXIT ERROR")
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 
 	// With Context
 	response, err = client.ExitError(context.Background(), "EXIT ERROR")
-	asserts(t, client, response, err)
+	commonAsserts(t, client, response, err)
 }
