@@ -49,7 +49,7 @@ var (
 	lambdaEvents = []EventType{"INVOKE", "SHUTDOWN"}
 )
 
-// RegisterExtension is to regsiter extension to Run Time API client. Call the following method on initialization as early as possible,
+// RegisterExtension is to register extension to Run Time API client. Call the following method on initialization as early as possible,
 // otherwise you may get a timeout error. Runtime initialization will start after all extensions are registered.
 func (client *Client) RegisterExtension(ctx context.Context) (*RegisterResponse, error) {
 	URL := client.baseURL + extensionURL + "register"
