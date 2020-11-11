@@ -58,7 +58,7 @@ func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*
 
 	request, err := http.NewRequestWithContext(ctx, "POST", s.config.SumoHTTPEndpoint, buf)
 	if err != nil {
-		s.logger.Errorf("http.NewRequest() error: %v\n", err)
+		err = fmt.Errorf("http.NewRequest() error: %v", err)
 		return nil, err
 	}
 	request.Header.Add("Content-Encoding", "gzip")
@@ -90,7 +90,7 @@ func (s *sumoLogicClient) getS3KeyName() (string, error) {
 }
 
 func (s *sumoLogicClient) failoverHandler(buf *bytes.Buffer) error {
-	var err error
+
 	if s.config.EnableFailover {
 
 		s.logger.Debug("Trying to Send to S3")
@@ -102,17 +102,16 @@ func (s *sumoLogicClient) failoverHandler(buf *bytes.Buffer) error {
 		if err != nil {
 			err = fmt.Errorf("Failed to Send to S3 Bucket %s Path %s: %w", s.config.S3BucketName, keyName, err)
 		}
-	} else {
-		s.logger.Debugln("FailOver is not enabled.")
+		return err
 	}
-	return err
+	return nil
 }
 
 func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 	var err error
 
 	if len(msgQueue) > 0 && s.config.EnableFailover {
-		s.logger.Debugf("Attempting to send %d payloads from dataqueue to S3", len(msgQueue))
+		s.logger.Debugf("FlushAll - Attempting to send %d payloads from dataqueue to S3", len(msgQueue))
 		var errorCount int = 0
 		var totalitems int = 0
 		var payload bytes.Buffer
@@ -120,7 +119,7 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 			// converting to arr of maps
 			msgArr, err := s.transformBytesToArrayOfMap(rawmsg)
 			if err != nil {
-				s.logger.Error(err.Error())
+				s.logger.Error("FlushAll - Error in transforming bytes to array of struct", err.Error())
 				errorCount++
 				continue
 			}
@@ -133,7 +132,7 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 				for _, item := range msgArr {
 					b, err := json.Marshal(item)
 					if err != nil {
-						s.logger.Error("Error in coverting to json: ", err.Error())
+						s.logger.Error("FlushAll - Error in coverting to json: ", err.Error())
 						errorCount++
 						continue
 					}
@@ -141,16 +140,16 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 				}
 			}
 		}
-		s.logger.Debugf("Total log lines transformed: %d Total errors: %d", totalitems, errorCount)
+		s.logger.Debugf("FlushAll - Total log lines transformed: %d", totalitems)
 
 		// compressing and pushing to S3
 		gzippedBuffer := utils.CompressBuffer(&payload)
 		senderr := s.failoverHandler(gzippedBuffer)
 		if errorCount > 0 || senderr != nil {
-			err = fmt.Errorf("Total errors during flushing to S3: %d SendErr: %v", errorCount, senderr)
+			err = fmt.Errorf("FlushAll - Errors during chunk creation: %d, Errors during flushing to S3: %v", errorCount, senderr)
 		}
 	} else {
-		s.logger.Debugln("FailOver is not enabled.")
+		s.logger.Info("FlushAll - Dropping messages as no failover enabled.")
 	}
 	return err
 }
@@ -251,23 +250,33 @@ func (s *sumoLogicClient) createChunks(msgArr responseBody) ([]string, error) {
 
 // SendToSumo send logs to sumo http endpoint returns
 func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
-	var err error
 	if len(rawmsg) > 0 {
 		// converting to arr of maps
 		msgArr, err := s.transformBytesToArrayOfMap(rawmsg)
 		if err != nil {
-			return err
+			return fmt.Errorf("SendLogs - transformBytesToArrayOfMap failed: %v", err)
 		}
-		s.logger.Debugf("Total log lines transformed: %d", len(msgArr))
+		s.logger.Debugf("SendLogs - Total log lines transformed: %d", len(msgArr))
 		s.enhanceLogs(msgArr)
 
 		// converting back to chunks of string
-		chunks, _ := s.createChunks(msgArr)
+		chunks, err := s.createChunks(msgArr)
+		if err != nil {
+			return fmt.Errorf("SendLogs - createChunks failed: %v", err)
+		}
+		var errorCount int = 0
 		for _, strobj := range chunks {
-			s.postToSumo(ctx, &strobj)
+			err := s.postToSumo(ctx, &strobj)
+			if err != nil {
+				errorCount++
+			}
+		}
+		if errorCount > 0 {
+			err = fmt.Errorf("SendLogs - errors during postToSumo: %d", errorCount)
+			return err
 		}
 	}
-	return err
+	return nil
 }
 
 func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *string) error {
@@ -282,24 +291,23 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	}
 	buf := createBuffer()
 	response, err := s.makeRequest(ctx, buf)
-
+	if response != nil {
+		defer response.Body.Close()
+	}
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 		s.logger.Errorf("Not able to post statuscode:  %v %v\n", err, response)
-		s.logger.Debugf("Waiting for %v ms to retry\n", s.config.RetrySleepTime)
-		time.Sleep(s.config.RetrySleepTime)
 		err := utils.Retry(func(attempt int) (bool, error) {
-			var errRetry error
+			s.logger.Debugf("Waiting for %v ms for retry attempt: %v\n", s.config.RetrySleepTime, attempt)
+			time.Sleep(s.config.RetrySleepTime)
 			buf := createBuffer()
-			response, errRetry = s.makeRequest(ctx, buf)
-			if (errRetry != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
+			retryResponse, errRetry := s.makeRequest(ctx, buf)
+			if (errRetry != nil) || (retryResponse.StatusCode != 200 && retryResponse.StatusCode != 302 && retryResponse.StatusCode < 500) {
 				if errRetry == nil {
-					errRetry = fmt.Errorf("statuscode %v", response.StatusCode)
+					errRetry = fmt.Errorf("statuscode %v", retryResponse.StatusCode)
 				}
 				s.logger.Error("Not able to post: ", errRetry)
-				s.logger.Debugf("Waiting for %v ms to retry attempts done: %v\n", s.config.RetrySleepTime, attempt)
-				time.Sleep(s.config.RetrySleepTime)
 				return attempt < s.config.MaxRetryAttempts, errRetry
-			} else if response.StatusCode == 200 {
+			} else if retryResponse.StatusCode == 200 {
 				s.logger.Debugf("Post of logs successful after retry %v attempts\n", attempt)
 				return true, nil
 			}
@@ -307,14 +315,19 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 		}, s.config.NumRetry)
 		if err != nil {
 			s.logger.Error("Finished retrying Error: ", err)
-			buf = createBuffer()
-			return s.failoverHandler(buf) // sending uncompressed logs to S3 so customer can easily view it
+			if s.config.EnableFailover {
+				buf = createBuffer()
+				err := s.failoverHandler(buf)
+				if err != nil {
+					s.logger.Errorf("Dropping messages as post to S3 failed: %v\n", err)
+					return err
+				}
+			} else {
+				s.logger.Info("Dropping messages as no failover enabled.")
+			}
 		}
 	} else if response.StatusCode == 200 {
 		s.logger.Debugf("Post of logs successful")
-	}
-	if response != nil {
-		defer response.Body.Close()
 	}
 
 	return nil

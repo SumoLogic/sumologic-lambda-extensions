@@ -21,14 +21,15 @@ func Retry(fn Func, maxRetries int) error {
 	var cont bool
 	var attempt int = 1
 	for {
+		if attempt > maxRetries {
+			return errMaxRetriesReached
+		}
 		cont, err = fn(attempt)
 		if !cont || err == nil {
 			break
 		}
 		attempt++
-		if attempt > maxRetries {
-			return errMaxRetriesReached
-		}
+
 	}
 	return err
 }
