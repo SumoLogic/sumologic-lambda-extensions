@@ -31,6 +31,6 @@ For Full Change Log, please visit [Releases](https://github.com/SumoLogic/sumolo
 
 [github-build]: https://github.com/SumoLogic/sumologic-lambda-extensions/actions?query=workflow%3Abuild-and-test
 
-[github-release-badge]: https://img.shields.io/github/release/sumologic/sumologic-lambda-extensions.svg?label=release
+[github-release-badge]: https://img.shields.io/github/release/sumologic/sumologic-lambda-extensions/all.svg?label=release
 
 [github-release]: https://github.com/sumologic/sumologic-lambda-extensions/releases/latest
