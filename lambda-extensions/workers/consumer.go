@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/utils"
-
 	cfg "github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/config"
 	sumocli "github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/sumoclient"
 
@@ -74,7 +72,7 @@ func (sc *sumoConsumer) DrainQueue(ctx context.Context, deadtimems int64) int {
 	//sc.logger.Debug("Consuming data from dataQueue")
 	counter := 0
 Loop:
-	for i := 0; i < sc.config.MaxConcurrentRequests && len(sc.dataQueue) != 0 && utils.IsTimeRemaining(deadtimems); i++ {
+	for i := 0; i < sc.config.MaxConcurrentRequests && len(sc.dataQueue) != 0; i++ {
 		//Receives block when the buffer is empty.
 		select {
 		case rawmsg := <-sc.dataQueue:
