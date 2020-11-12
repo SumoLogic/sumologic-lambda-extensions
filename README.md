@@ -23,6 +23,10 @@ This repository contains SumoLogic AWS Lambda extension.
    * To know more about how to use this extension follow docs [here](https://help.sumologic.com/03Send-Data/Collect-from-Other-Data-Sources/Collect_Logs_from_AWS_Lambda_using_Lambda_Extension).
    * [AWS Lambda Extensions API](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-extensions-api.html)
 
+## Change Log
+
+For Full Change Log, [Visit](./CHANGELOG.md) or [Releases](https://github.com/SumoLogic/sumologic-lambda-extensions/releases) page.
+
 [github-build-badge]: https://github.com/SumoLogic/sumologic-lambda-extensions/workflows/build-and-test/badge.svg?branch=main
 
 [github-build]: https://github.com/SumoLogic/sumologic-lambda-extensions/actions?query=workflow%3Abuild-and-test
