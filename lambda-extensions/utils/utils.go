@@ -12,18 +12,18 @@ import (
 var errMaxRetriesReached = errors.New("exceeded retry limit")
 
 // Func represents functions that can be retried.
-type Func func(attempt int) (retry bool, err error)
+type Func func(attempt int, prevRetryErr error) (bool, error)
 
 // Retry keeps trying the function until the second argument returns false, or no error is returned.
-func Retry(fn Func, maxRetries int) error {
-	var err error
+func Retry(fn Func, maxRetries int, err error) error {
+
 	var cont bool
 	var attempt int = 1
 	for {
 		if attempt > maxRetries {
 			return errMaxRetriesReached
 		}
-		cont, err = fn(attempt)
+		cont, err = fn(attempt, err)
 		if !cont || err == nil {
 			break
 		}

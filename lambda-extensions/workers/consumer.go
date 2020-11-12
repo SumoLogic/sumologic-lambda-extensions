@@ -55,7 +55,7 @@ func (sc *sumoConsumer) FlushDataQueue(ctx context.Context) {
 					// TODO: raise alert if flush fails
 				}
 				close(sc.dataQueue)
-				sc.logger.Debugf("DataQueue completely drained")
+				sc.logger.Debugf("DataQueue completely flushed %d", len(rawMsgArr))
 				break Loop
 			}
 		}
@@ -99,7 +99,9 @@ Loop:
 		}
 
 	}
-	//sc.logger.Debugf("Waiting for %d consumer to finish their tasks", counter)
+	if counter > 0 {
+		sc.logger.Debugf("Waiting for %d consumer to finish their tasks", counter)
+	}
 	wg.Wait()
 	return counter
 }

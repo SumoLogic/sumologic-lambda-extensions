@@ -296,9 +296,12 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	}
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 		s.logger.Errorf("Not able to post statuscode:  %v %v\n", err, response)
-		err := utils.Retry(func(attempt int) (bool, error) {
-			s.logger.Debugf("Waiting for %v ms for retry attempt: %v\n", s.config.RetrySleepTime, attempt)
-			time.Sleep(s.config.RetrySleepTime)
+		err = utils.Retry(func(attempt int, prevRetryErr error) (bool, error) {
+			// not calling sleep in case of time out
+			if !strings.Contains(prevRetryErr.Error(), "Client.Timeout exceeded while awaiting headers") {
+				s.logger.Debugf("Waiting for %v ms for retry attempt: %v\n", s.config.RetrySleepTime, attempt)
+				time.Sleep(s.config.RetrySleepTime)
+			}
 			buf := createBuffer()
 			retryResponse, errRetry := s.makeRequest(ctx, buf)
 			if (errRetry != nil) || (retryResponse.StatusCode != 200 && retryResponse.StatusCode != 302 && retryResponse.StatusCode < 500) {
@@ -312,7 +315,7 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 				return true, nil
 			}
 			return attempt < s.config.MaxRetryAttempts, errRetry
-		}, s.config.NumRetry)
+		}, s.config.NumRetry, err)
 		if err != nil {
 			s.logger.Error("Finished retrying Error: ", err)
 			if s.config.EnableFailover {
