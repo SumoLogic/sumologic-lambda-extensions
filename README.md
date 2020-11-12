@@ -7,6 +7,14 @@ AWS Lambda Extensions lets you integrate Lambda with your favorite tools for mon
 
 This repository contains SumoLogic AWS Lambda extension.
 
+# AWS Layer Version
+
+The Sumo Logic lambda extension is available as an AWS public Layer. The latest layer is:
+
+arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension:1
+
+- AWS_REGION - Replace with your AWS Lambda Region.
+
 # Contributing
 
   - To improve the existing app or reporting issues, follow instructions in [CONTRIBUTING](CONTRIBUTING.md)
