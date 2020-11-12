@@ -25,7 +25,7 @@ This repository contains SumoLogic AWS Lambda extension.
 
 ## Change Log
 
-For Full Change Log, [ChangeLog](./CHANGELOG.md) or [Releases](https://github.com/SumoLogic/sumologic-lambda-extensions/releases) page.
+For Full Change Log, please visit [ChangeLog](./CHANGELOG.md) or [Releases](https://github.com/SumoLogic/sumologic-lambda-extensions/releases) page.
 
 [github-build-badge]: https://github.com/SumoLogic/sumologic-lambda-extensions/workflows/build-and-test/badge.svg?branch=main
 
