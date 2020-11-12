@@ -12,8 +12,8 @@ import (
 
 // TaskConsumer exposing methods every consmumer should implement
 type TaskConsumer interface {
-	FlushDataQueue()
-	DrainQueue(context.Context, int64) int
+	FlushDataQueue(context.Context)
+	DrainQueue(context.Context) int
 }
 
 // sumoConsumer to drain log from dataQueue
@@ -35,23 +35,35 @@ func NewTaskConsumer(consumerQueue chan []byte, config *cfg.LambdaExtensionConfi
 }
 
 // FlushDataQueue drains the dataqueue commpletely
-func (sc *sumoConsumer) FlushDataQueue() {
-	var rawMsgArr [][]byte
-Loop:
-	for {
-		//Receives block when the buffer is empty.
-		select {
-		case rawmsg := <-sc.dataQueue:
-			rawMsgArr = append(rawMsgArr, rawmsg)
-		default:
-			err := sc.sumoclient.FlushAll(rawMsgArr)
-			if err != nil {
-				sc.logger.Debugln("Unable to flush DataQueue", err.Error())
-				// TODO: raise alert if flush fails
+func (sc *sumoConsumer) FlushDataQueue(ctx context.Context) {
+	if sc.config.EnableFailover {
+		var rawMsgArr [][]byte
+	Loop:
+		for {
+			//Receives block when the buffer is empty.
+			select {
+			case rawmsg := <-sc.dataQueue:
+				rawMsgArr = append(rawMsgArr, rawmsg)
+			default:
+				err := sc.sumoclient.FlushAll(rawMsgArr)
+				if err != nil {
+					sc.logger.Debugln("Unable to flush DataQueue", err.Error())
+					// putting back all the msg to the queue in case of failure
+					for _, msg := range rawMsgArr {
+						sc.dataQueue <- msg
+					}
+					// TODO: raise alert if flush fails
+				}
+				close(sc.dataQueue)
+				sc.logger.Debugf("DataQueue completely drained")
+				break Loop
 			}
-			close(sc.dataQueue)
-			sc.logger.Debugf("DataQueue completely drained")
-			break Loop
+		}
+	} else {
+		// calling drainqueue (during shutdown) if failover is not enabled
+		maxCallsNeededForCompleteDraining := (len(sc.dataQueue) / sc.config.MaxConcurrentRequests) + 1
+		for i := 0; i < maxCallsNeededForCompleteDraining; i++ {
+			sc.DrainQueue(ctx)
 		}
 	}
 
@@ -62,12 +74,14 @@ func (sc *sumoConsumer) consumeTask(ctx context.Context, wg *sync.WaitGroup, raw
 	err := sc.sumoclient.SendLogs(ctx, rawmsg)
 	if err != nil {
 		sc.logger.Error("Error during Send Logs to Sumo Logic.", err.Error())
+		// putting back the msg to the queue in case of failure
+		sc.dataQueue <- rawmsg
 		// TODO: raise alert if send logs fails
 	}
 	return
 }
 
-func (sc *sumoConsumer) DrainQueue(ctx context.Context, deadtimems int64) int {
+func (sc *sumoConsumer) DrainQueue(ctx context.Context) int {
 	wg := new(sync.WaitGroup)
 	//sc.logger.Debug("Consuming data from dataQueue")
 	counter := 0

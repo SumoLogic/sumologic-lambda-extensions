@@ -82,17 +82,9 @@ func nextEvent(ctx context.Context) (*lambdaapi.NextEventResponse, error) {
 	return nextResponse, nil
 }
 
-func flushData(ctx context.Context, DeadlineMs int64) {
-	if config.EnableFailover {
-		consumer.FlushDataQueue()
-	} else {
-		consumer.DrainQueue(ctx, DeadlineMs)
-	}
-}
-
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
 func processEvents(ctx context.Context) {
-	DeadlineMs, err := runTimeAPIInit()
+	_, err := runTimeAPIInit()
 	if err != nil {
 		logger.Error("Error during Registration: ", err.Error())
 		return
@@ -101,10 +93,10 @@ func processEvents(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			flushData(ctx, 0)
+			consumer.FlushDataQueue(ctx)
 			return
 		default:
-			go consumer.DrainQueue(ctx, DeadlineMs)
+			go consumer.DrainQueue(ctx)
 			// This statement will freeze lambda
 			nextResponse, err := nextEvent(ctx)
 			if err != nil {
@@ -114,7 +106,7 @@ func processEvents(ctx context.Context) {
 			// Next invoke will start from here
 			logger.Infof("Received Next Event as %s", nextResponse.EventType)
 			if nextResponse.EventType == lambdaapi.Shutdown {
-				flushData(ctx, 0)
+				consumer.FlushDataQueue(ctx)
 				return
 			}
 		}
