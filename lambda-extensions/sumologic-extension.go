@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/utils"
 
@@ -83,54 +82,32 @@ func nextEvent(ctx context.Context) (*lambdaapi.NextEventResponse, error) {
 	return nextResponse, nil
 }
 
-func flushData(ctx context.Context, DeadlineMs int64) {
-	if config.EnableFailover {
-		consumer.FlushDataQueue()
-	} else {
-		consumer.DrainQueue(ctx, DeadlineMs)
-	}
-}
-
 // processEvents is - Will block until shutdown event is received or cancelled via the context..
 func processEvents(ctx context.Context) {
-	DeadlineMs, err := runTimeAPIInit()
+	_, err := runTimeAPIInit()
 	if err != nil {
 		logger.Error("Error during Registration: ", err.Error())
 		return
 	}
-	var totalMessagedProcessed int
-	startTime := time.Now()
 	// The For loop will continue till we recieve a shutdown event.
 	for {
 		select {
 		case <-ctx.Done():
-			flushData(ctx, 0)
+			consumer.FlushDataQueue(ctx)
 			return
 		default:
-			currentMessagedProcessed := consumer.DrainQueue(ctx, DeadlineMs)
-			messagesChanged, durationComplete := utils.TotalMessagesCountChanged(totalMessagedProcessed, totalMessagedProcessed+currentMessagedProcessed, config.ProcessingSleepTime, startTime)
-			totalMessagedProcessed = totalMessagedProcessed + currentMessagedProcessed
-			// Call the next event is we reach timeout or no new message are received based on sleep time.
-			if !utils.IsTimeRemaining(DeadlineMs) || durationComplete {
-				logger.Debugf("Total Messages: %v, Current Messages: %v, messages changes: %v, duration Complete: %v, start Time: %s, Sleep Time: %s", totalMessagedProcessed, currentMessagedProcessed, messagesChanged, durationComplete, startTime, config.ProcessingSleepTime)
-				logger.Info("Waiting for Run Time API event...")
-				// This statement will freeze lambda
-				nextResponse, err := nextEvent(ctx)
-				if err != nil {
-					logger.Error("Error during Next Event call: ", err.Error())
-					return
-				}
-				// Next invoke will start from here
-				logger.Infof("Received Next Event as %s", nextResponse.EventType)
-				if nextResponse.EventType == lambdaapi.Shutdown {
-					flushData(ctx, 0)
-					return
-				}
-				DeadlineMs = nextResponse.DeadlineMs
-				totalMessagedProcessed = 0
+			go consumer.DrainQueue(ctx)
+			// This statement will freeze lambda
+			nextResponse, err := nextEvent(ctx)
+			if err != nil {
+				logger.Error("Error during Next Event call: ", err.Error())
+				return
 			}
-			if messagesChanged {
-				startTime = time.Now()
+			// Next invoke will start from here
+			logger.Infof("Received Next Event as %s", nextResponse.EventType)
+			if nextResponse.EventType == lambdaapi.Shutdown {
+				consumer.FlushDataQueue(ctx)
+				return
 			}
 		}
 	}

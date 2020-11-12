@@ -154,7 +154,7 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 	return err
 }
 
-func (s *sumoLogicClient) createCWLogLinee(item map[string]interface{}) {
+func (s *sumoLogicClient) createCWLogLine(item map[string]interface{}) {
 
 	message, ok := item["record"].(map[string]interface{})
 	if ok {
@@ -198,7 +198,7 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 			}
 			item["message"] = strings.TrimSpace(message)
 		} else if ok && logType == "platform.report" {
-			s.createCWLogLinee(item)
+			s.createCWLogLine(item)
 		}
 	}
 }

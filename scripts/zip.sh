@@ -79,6 +79,6 @@ for region in "${AWS_REGIONS[@]}"; do
     echo "Layer Arn: arn:aws:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deployed to Region ${region}"
 
     echo "Setting public permissions for layer version: ${layer_version}"
-    # aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-prod --version-number $layer_version --principal '*' --action lambda:GetLayerVersion --region ${region}
-    aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-dev --version-number ${layer_version} --principal '956882708938' --action lambda:GetLayerVersion --region ${region}
+    aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-prod --version-number $layer_version --principal '*' --action lambda:GetLayerVersion --region ${region}
+    # aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-dev --version-number ${layer_version} --principal '956882708938' --action lambda:GetLayerVersion --region ${region}
 done

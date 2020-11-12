@@ -75,7 +75,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	logTypes := os.Getenv("SUMO_LOG_TYPES")
 	if numRetry == "" {
-		cfg.NumRetry = 0
+		cfg.NumRetry = 3
 	}
 	if logLevel == "" {
 		cfg.LogLevel = logrus.InfoLevel
