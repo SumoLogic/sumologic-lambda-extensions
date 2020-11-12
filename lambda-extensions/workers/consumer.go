@@ -47,7 +47,7 @@ func (sc *sumoConsumer) FlushDataQueue(ctx context.Context) {
 			default:
 				err := sc.sumoclient.FlushAll(rawMsgArr)
 				if err != nil {
-					sc.logger.Debugln("Unable to flush DataQueue", err.Error())
+					sc.logger.Errorln("Unable to flush DataQueue", err.Error())
 					// putting back all the msg to the queue in case of failure
 					for _, msg := range rawMsgArr {
 						sc.dataQueue <- msg
