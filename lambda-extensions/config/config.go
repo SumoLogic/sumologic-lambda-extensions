@@ -51,7 +51,7 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 		LambdaRegion:           os.Getenv("AWS_REGION"),
 		SourceCategoryOverride: os.Getenv("SOURCE_CATEGORY_OVERRIDE"),
 		MaxRetryAttempts:       5,
-		ConnectionTimeoutValue: 60 * time.Second,
+		ConnectionTimeoutValue: 10000 * time.Millisecond,
 		MaxDataPayloadSize:     1024 * 1024, // 1 MB
 	}
 

@@ -21,7 +21,9 @@ func init() {
 	}
 
 	sess = session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(awsRegion)}))
+		Region:     aws.String(awsRegion),
+		MaxRetries: aws.Int(3),
+	}))
 
 	// Create an uploader with the session and default options
 	uploader = s3manager.NewUploader(sess)

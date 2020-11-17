@@ -55,7 +55,6 @@ func (s *sumoLogicClient) getColdStart() bool {
 }
 
 func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*http.Response, error) {
-
 	request, err := http.NewRequestWithContext(ctx, "POST", s.config.SumoHTTPEndpoint, buf)
 	if err != nil {
 		err = fmt.Errorf("http.NewRequest() error: %v", err)
@@ -298,7 +297,7 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 		s.logger.Errorf("Not able to post statuscode:  %v %v\n", err, response)
 		err = utils.Retry(func(attempt int, prevRetryErr error) (bool, error) {
 			// not calling sleep in case of time out
-			if !strings.Contains(prevRetryErr.Error(), "Client.Timeout exceeded while awaiting headers") {
+			if !(strings.Contains(prevRetryErr.Error(), "Client.Timeout") || strings.Contains(prevRetryErr.Error(), "i/o timeout")) {
 				s.logger.Debugf("Waiting for %v ms for retry attempt: %v\n", s.config.RetrySleepTime, attempt)
 				time.Sleep(s.config.RetrySleepTime)
 			}
@@ -308,7 +307,7 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 				if errRetry == nil {
 					errRetry = fmt.Errorf("statuscode %v", retryResponse.StatusCode)
 				}
-				s.logger.Error("Not able to post: ", errRetry)
+				s.logger.Errorf("Not able to post: %v after retry %v attempts\n", errRetry, attempt)
 				return attempt < s.config.MaxRetryAttempts, errRetry
 			} else if retryResponse.StatusCode == 200 {
 				s.logger.Debugf("Post of logs successful after retry %v attempts\n", attempt)
