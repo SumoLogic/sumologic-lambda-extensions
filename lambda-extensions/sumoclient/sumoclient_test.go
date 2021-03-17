@@ -130,4 +130,20 @@ func TestSumoClient(t *testing.T) {
 	err = client.SendLogs(ctx, logs)
 	assertEqual(t, strings.HasPrefix(err.Error(), "SendLogs - errors during postToSumo: 1"), true, "SendLogs should generate error")
 
+	// Test case for source Category
+	os.Setenv("RETAIN_SOURCE_CATEGORY_S3", "true")
+	os.Setenv("SOURCE_CATEGORY_OVERRIDE", "Labs/asnb")
+	config, err = cfg.GetConfig()
+	assertEqual(t, err, nil, "GetConfig should not generate error")
+	client = NewLogSenderClient(logger, config)
+
+	t.Log("\n Flush All with Source Category Override \n====================")
+	err = client.FlushAll(multiplelargedata)
+	assertEqual(t, strings.HasPrefix(err.Error(), "FlushAll - Errors during chunk creation: 0, Errors during flushing to S3"), true, "FlushAll should generate error")
+
+	config.SumoHTTPEndpoint = throttlingEndpointServer.URL
+	t.Log("\nretry scenario + failover with Source Category Override\n======================")
+	err = client.SendLogs(ctx, logs)
+	assertEqual(t, strings.HasPrefix(err.Error(), "SendLogs - errors during postToSumo: 1"), true, "SendLogs should generate error")
+
 }

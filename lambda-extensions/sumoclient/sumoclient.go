@@ -125,7 +125,7 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 			}
 			if len(msgArr) > 0 {
 				// enhancing logs
-				s.enhanceLogs(msgArr)
+				s.enhanceLogs(msgArr, true)
 				totalitems += len(msgArr)
 
 				// converting back to string
@@ -177,7 +177,7 @@ func (s *sumoLogicClient) getLogStream() string {
 	return fmt.Sprintf("%s/[%s]%s", currentDate, s.config.FunctionVersion, config.ExtensionName)
 }
 
-func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
+func (s *sumoLogicClient) enhanceLogs(msg responseBody, s3enhancement bool) {
 	s.logger.Debugln("Enhancing logs")
 	for _, item := range msg {
 		// item["FunctionName"] = s.config.FunctionName
@@ -199,6 +199,9 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 			item["message"] = strings.TrimSpace(message)
 		} else if ok && logType == "platform.report" {
 			s.createCWLogLine(item)
+		}
+		if s3enhancement && s.config.RetainSourceCategoryS3 && s.config.SourceCategoryOverride != "" {
+			item["SourceCategory"] = s.config.SourceCategoryOverride
 		}
 	}
 }
@@ -257,7 +260,7 @@ func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 			return fmt.Errorf("SendLogs - transformBytesToArrayOfMap failed: %v", err)
 		}
 		s.logger.Debugf("SendLogs - Total log lines transformed: %d", len(msgArr))
-		s.enhanceLogs(msgArr)
+		s.enhanceLogs(msgArr, false)
 
 		// converting back to chunks of string
 		chunks, err := s.createChunks(msgArr)
@@ -316,6 +319,9 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 		if err != nil {
 			s.logger.Error("Finished retrying Error: ", err)
 			if s.config.EnableFailover {
+				if s.config.RetainSourceCategoryS3 && s.config.SourceCategoryOverride != "" {
+					bytedata = utils.Compress(s.modifyOriginalString(logStringToSend))
+				}
 				buf = createBuffer()
 				err := s.failoverHandler(buf)
 				if err != nil {
@@ -331,4 +337,13 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	}
 
 	return nil
+}
+
+func (s *sumoLogicClient) modifyOriginalString(inputData *string) *string {
+	s.logger.Debugf("Original Value of String: %s", *inputData)
+	oldPattern := fmt.Sprintf("\"LayerVersion\":\"%s\"", config.SumoLogicExtensionLayerVersionSuffix)
+	newPattern := fmt.Sprintf("\"LayerVersion\":\"%s\",\"SourceCategory\":\"%s\"", config.SumoLogicExtensionLayerVersionSuffix, s.config.SourceCategoryOverride)
+	modifiedString := strings.ReplaceAll(*inputData, oldPattern, newPattern)
+	s.logger.Debugf("Modified Value of String: %s", modifiedString)
+	return &modifiedString
 }

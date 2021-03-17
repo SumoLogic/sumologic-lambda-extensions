@@ -35,6 +35,7 @@ type LambdaExtensionConfig struct {
 	MaxDataPayloadSize     int
 	LambdaRegion           string
 	SourceCategoryOverride string
+	RetainSourceCategoryS3 bool
 }
 
 var validLogTypes = []string{"platform", "function", "extension"}
@@ -74,6 +75,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	logTypes := os.Getenv("SUMO_LOG_TYPES")
+	retainSourceCategoryS3 := os.Getenv("RETAIN_SOURCE_CATEGORY_S3")
 	if numRetry == "" {
 		cfg.NumRetry = 3
 	}
@@ -101,7 +103,9 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	if processingSleepTime == "" {
 		cfg.ProcessingSleepTime = 0 * time.Millisecond
 	}
-
+	if retainSourceCategoryS3 == "" {
+		cfg.RetainSourceCategoryS3 = false
+	}
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
@@ -111,6 +115,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	processingSleepTime := os.Getenv("SUMO_PROCESSING_SLEEP_TIME_MS")
+	retainSourceCategoryS3 := os.Getenv("RETAIN_SOURCE_CATEGORY_S3")
 
 	var allErrors []string
 	var err error
@@ -187,6 +192,13 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 			cfg.LogLevel = customloglevel
 		}
 
+	}
+
+	if retainSourceCategoryS3 != "" {
+		cfg.RetainSourceCategoryS3, err = strconv.ParseBool(retainSourceCategoryS3)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse RETAIN_SOURCE_CATEGORY_S3: %v", err))
+		}
 	}
 
 	// test valid log format type
