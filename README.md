@@ -7,7 +7,7 @@ AWS Lambda Extensions lets you integrate Lambda with your favorite tools for mon
 
 This repository contains SumoLogic AWS Lambda extension.
 
-**Note :- Since Sumo logic AWS Lambda extension requires a minimum execution time to send logs to Sumo Logic, it is recommended that a sleep time of minimum 1 second be added to AWS Lambda functions that have execution time in milliseconds.**
+**Note :- Since Sumo logic AWS Lambda extension requires a minimum execution time to send logs to Sumo Logic, it is recommended that a sleep time of minimum 1 second be added to AWS Lambda functions that have execution time in milliseconds in order to receive the logs during lambda execution.**
 
 # AWS Layer Version
 
