@@ -7,8 +7,6 @@ AWS Lambda Extensions lets you integrate Lambda with your favorite tools for mon
 
 This repository contains SumoLogic AWS Lambda extension.
 
-**Note :- Since Sumo logic AWS Lambda extension requires a minimum execution time to send logs to Sumo Logic, it is recommended that a sleep time of minimum 1 second be added to AWS Lambda functions that have execution time in milliseconds in order to receive the logs during lambda execution.**
-
 # AWS Layer Version
 
 The Sumo Logic lambda extension is available as an AWS public Layer. The latest layer is:
@@ -16,6 +14,12 @@ The Sumo Logic lambda extension is available as an AWS public Layer. The latest 
     arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension:1
 
 - AWS_REGION - Replace with your AWS Lambda Region.
+
+### Receive logs during AWS Lambda execution time  
+All the logs which are not sent to Sumo Logic during the execution of the AWS lambda, are sent to Sumo Logic during the [ShutDown](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-context.html) of the AWS Lambda.
+
+If you would like to send the Logs during the execution of the AWS lambda, you can add some extra execution time (using sleep at the end of lambda), which will give extension time to run and send the logs to Sumo Logic. We recommend adding a sleep time of around approx 1 - 2 seconds.
+
 
 # Contributing
 
