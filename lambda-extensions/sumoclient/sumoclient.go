@@ -55,7 +55,6 @@ func (s *sumoLogicClient) getColdStart() bool {
 }
 
 func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*http.Response, error) {
-
 	request, err := http.NewRequestWithContext(ctx, "POST", s.config.SumoHTTPEndpoint, buf)
 	if err != nil {
 		err = fmt.Errorf("http.NewRequest() error: %v", err)
@@ -296,23 +295,26 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	}
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 		s.logger.Errorf("Not able to post statuscode:  %v %v\n", err, response)
-		err := utils.Retry(func(attempt int) (bool, error) {
-			s.logger.Debugf("Waiting for %v ms for retry attempt: %v\n", s.config.RetrySleepTime, attempt)
-			time.Sleep(s.config.RetrySleepTime)
+		err = utils.Retry(func(attempt int, prevRetryErr error) (bool, error) {
+			// not calling sleep in case of time out
+			if !(strings.Contains(prevRetryErr.Error(), "Client.Timeout") || strings.Contains(prevRetryErr.Error(), "i/o timeout")) {
+				s.logger.Debugf("Waiting for %v ms for retry attempt: %v\n", s.config.RetrySleepTime, attempt)
+				time.Sleep(s.config.RetrySleepTime)
+			}
 			buf := createBuffer()
 			retryResponse, errRetry := s.makeRequest(ctx, buf)
 			if (errRetry != nil) || (retryResponse.StatusCode != 200 && retryResponse.StatusCode != 302 && retryResponse.StatusCode < 500) {
 				if errRetry == nil {
 					errRetry = fmt.Errorf("statuscode %v", retryResponse.StatusCode)
 				}
-				s.logger.Error("Not able to post: ", errRetry)
+				s.logger.Errorf("Not able to post: %v after retry %v attempts\n", errRetry, attempt)
 				return attempt < s.config.MaxRetryAttempts, errRetry
 			} else if retryResponse.StatusCode == 200 {
 				s.logger.Debugf("Post of logs successful after retry %v attempts\n", attempt)
 				return true, nil
 			}
 			return attempt < s.config.MaxRetryAttempts, errRetry
-		}, s.config.NumRetry)
+		}, s.config.NumRetry, err)
 		if err != nil {
 			s.logger.Error("Finished retrying Error: ", err)
 			if s.config.EnableFailover {
