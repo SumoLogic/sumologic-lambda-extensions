@@ -15,7 +15,7 @@ The Sumo Logic lambda extension is available as an AWS public Layer. The latest 
 
 - AWS_REGION - Replace with your AWS Lambda Region.
 
-### Receive logs during AWS Lambda execution time  
+### Receive logs during AWS Lambda execution time
 All the logs that are not sent to Sumo Logic during the Execution phase of the AWS Lambda, are sent during the shutdown phase instead. For more details on phases on the lifecycle and AWS Lambda phases please see the[ AWS documentation ](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-context.html).
 
 If you would like to always send logs during the execution phase however, you can add extra execution time via a sleep function at the end of lambda code, which will give your extension time to run and send logs to Sumo Logic. We recommend setting this to two seconds.
