@@ -12,8 +12,8 @@ const (
 	logsURL = "2020-08-15/logs"
 	// Subscription Body Constants. Subscribe to platform logs and receive them on ${local_ip}:4243 via HTTP protocol.
 	timeoutMs    = 1000
-	maxBytes     = 262144
-	maxItems     = 1000
+	maxBytes     = 1048576
+	maxItems     = 10000
 	receiverPort = 4243
 )
 

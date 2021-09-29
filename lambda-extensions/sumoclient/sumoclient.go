@@ -23,6 +23,7 @@ var isColdStart = true
 // LogSender interface which needs to be implemented to send logs
 type LogSender interface {
 	SendLogs(context.Context, []byte) error
+	SendAllLogs(context.Context, [][]byte) error
 	FlushAll([][]byte) error
 }
 
@@ -276,6 +277,51 @@ func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (s *sumoLogicClient) SendAllLogs(ctx context.Context, allMessages [][]byte) error {
+	s.logger.Debugf("SendAllLogs - Attempting to send %d payloads from dataqueue to S3", len(allMessages))
+	var errorCount int = 0
+	var totalitems int = 0
+	var payload responseBody
+	for _, rawmsg := range allMessages {
+		// converting to arr of maps
+		msgArr, err := s.transformBytesToArrayOfMap(rawmsg)
+		if err != nil {
+			s.logger.Error("SendAllLogs - Error in transforming bytes to array of struct", err.Error())
+			errorCount++
+			continue
+		}
+
+		if len(msgArr) > 0 {
+			// enhancing logs
+			s.enhanceLogs(msgArr)
+			totalitems += len(msgArr)
+
+			// converting back to string
+			for _, item := range msgArr {
+				payload = append(payload, item)
+			}
+		}
+	}
+
+	// converting back to chunks of string
+	chunks, err := s.createChunks(payload)
+	if err != nil {
+		return fmt.Errorf("SendLogs - createChunks failed: %v", err)
+	}
+	for _, strobj := range chunks {
+		err := s.postToSumo(ctx, &strobj)
+		if err != nil {
+			errorCount++
+		}
+	}
+	if errorCount > 0 {
+		err = fmt.Errorf("SendLogs - errors during postToSumo: %d", errorCount)
+		return err
+	}
+
 	return nil
 }
 

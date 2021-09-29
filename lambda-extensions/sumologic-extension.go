@@ -96,7 +96,7 @@ func processEvents(ctx context.Context) {
 			consumer.FlushDataQueue(ctx)
 			return
 		default:
-			go consumer.DrainQueue(ctx)
+			consumer.DrainQueue(ctx)
 			// This statement will freeze lambda
 			nextResponse, err := nextEvent(ctx)
 			if err != nil {

@@ -69,12 +69,12 @@ AWS_REGIONS=(
 echo "Using AWS_PROFILE: ${AWS_PROFILE}"
 
 # We have layer name as sumologic-extension. Please change name for local testing.
-layer_name=${binary_name}
+layer_name="${binary_name}"
 
 for region in "${AWS_REGIONS[@]}"; do
     layer_version=$(aws lambda publish-layer-version --layer-name ${layer_name} \
     --description "The SumoLogic Extension collects lambda logs and send it to Sumo Logic." \
-    --license-info "Apache-2.0" --zip-file fileb://$(pwd)/${TARGET_DIR}/zip/${layer_name}.zip \
+    --license-info "Apache-2.0" --zip-file fileb://$(pwd)/${TARGET_DIR}/zip/${binary_name}.zip \
     --profile ${AWS_PROFILE} --region ${region} --output text --query Version )
     echo "Layer Arn: arn:aws:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deployed to Region ${region}"
 
