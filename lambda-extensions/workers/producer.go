@@ -54,7 +54,8 @@ func (httpServer *httpServer) logsHandler(writer http.ResponseWriter, request *h
 			// TODO: raise alert if read fails
 			httpServer.logger.Error("Read from Logs API failed: ", err.Error())
 		}
-		httpServer.logger.Debug("Producing data into dataQueue")
+
+		httpServer.logger.Debugf("Producing data into dataQueue - %d \n", len(reqBody))
 		payload := []byte(reqBody)
 		// Sends to a buffered channel block only when the buffer is full
 		httpServer.dataQueue <- payload

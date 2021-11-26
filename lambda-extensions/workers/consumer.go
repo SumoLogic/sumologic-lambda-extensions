@@ -92,6 +92,7 @@ func (sc *sumoConsumer) DrainQueue(ctx context.Context) int {
 			select {
 			case rawmsg := <-sc.dataQueue:
 				rawMsgArr = append(rawMsgArr, rawmsg)
+				counter += 1
 			default:
 				err := sc.sumoclient.SendAllLogs(ctx, rawMsgArr)
 				if err != nil {

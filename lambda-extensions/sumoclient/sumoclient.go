@@ -298,14 +298,13 @@ func (s *sumoLogicClient) SendAllLogs(ctx context.Context, allMessages [][]byte)
 			// enhancing logs
 			s.enhanceLogs(msgArr)
 			totalitems += len(msgArr)
-
 			// converting back to string
 			for _, item := range msgArr {
 				payload = append(payload, item)
 			}
 		}
 	}
-
+	s.logger.Debugf("Sending TotalItems- %d \n", totalitems)
 	// converting back to chunks of string
 	chunks, err := s.createChunks(payload)
 	if err != nil {
