@@ -11,15 +11,27 @@ This repository contains SumoLogic AWS Lambda extension.
 
 The Sumo Logic lambda extension is available as an AWS public Layer. The latest layer is:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension:1
+For x86_64 use:
+
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:2
+
+For arm64 use:
+
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:2
+
 
 - AWS_REGION - Replace with your AWS Lambda Region.
 
-### Receive logs during AWS Lambda execution time  
+### Receive logs during AWS Lambda execution time
 All the logs that are not sent to Sumo Logic during the Execution phase of the AWS Lambda, are sent during the shutdown phase instead. For more details on phases on the lifecycle and AWS Lambda phases please see the[ AWS documentation ](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-context.html).
 
 If you would like to always send logs during the execution phase however, you can add extra execution time via a sleep function at the end of lambda code, which will give your extension time to run and send logs to Sumo Logic. We recommend setting this to two seconds.
 
+# Using Lambda extension in custom container images
+
+Follow the instruction in [docs](https://help.sumologic.com/03Send-Data/Collect-from-Other-Data-Sources/Collect_AWS_Lambda_Logs_using_an_Extension#For_AWS_Lambda_Functions_Created_Using_Container_Images:)
+
+Refer [containerimageexample](containerimageexample/python-arm64/) folder To see sample [Dockerfile](containerimageexample/python-arm64/Dockerfile) for python arm64 image.
 
 # Contributing
 
