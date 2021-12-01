@@ -6,9 +6,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/utils"
 
@@ -92,54 +90,39 @@ func processEvents(ctx context.Context) {
 		logger.Error("Error during Registration: ", err.Error())
 		return
 	}
-	max_items_to_wait := 2
-	if os.Getenv("MAX_ITEMS_TO_WAIT_FOR_RETRIEVAL") != "" {
-		max_items_to_wait, _ = strconv.Atoi(os.Getenv("MAX_ITEMS_TO_WAIT_FOR_RETRIEVAL"))
-	}
-
-	max_time_to_wait := 10 * 1000
-	if os.Getenv("MAX_MILLISECONDS_TO_WAIT_FOR_RETRIEVAL") != "" {
-		max_time_to_wait, _ = strconv.Atoi(os.Getenv("MAX_MILLISECONDS_TO_WAIT_FOR_RETRIEVAL"))
-	}
 
 	// The For loop will continue till we recieve a shutdown event.
 	for {
 		select {
-			case <-ctx.Done():
-				consumer.FlushDataQueue(ctx)
+		case <-ctx.Done():
+			consumer.FlushDataQueue(ctx)
+			return
+		default:
+			logger.Infof("Calling DrainQueue from processEvents")
+			for {
+				runtime_done := consumer.DrainQueue(ctx)
+
+				if runtime_done == 1 {
+					logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
+					break
+				} else {
+					// switching to other go routine
+					runtime.Gosched()
+				}
+			}
+
+			// This statement will freeze lambda
+			nextResponse, err := nextEvent(ctx)
+			if err != nil {
+				logger.Error("Error during Next Event call: ", err.Error())
 				return
-			default:
-				logger.Infof("Calling DrainQueue from processEvents")
-				deadline := time.Now().Add(time.Duration(max_time_to_wait) * time.Millisecond)
-				payload_drained := 0
-				for {
-					num_logs := consumer.DrainQueue(ctx)
-					if num_logs > 0 {
-						payload_drained += 1
-						logger.Infof("DrainedPayload: %d TotalPayloadRetrievedTillNow: %d", num_logs, payload_drained)
-					}
-
-					if time.Now().After(deadline) || payload_drained >= max_items_to_wait {
-						logger.Infof("Exiting DrainQueueLoop HasWaitExceeded: %v PayloadRetrieved: %v", time.Now().After(deadline), payload_drained)
-						break
-					} else {
-						// switching to other go routine
-						runtime.Gosched()
-					}
-				}
-
-				// This statement will freeze lambda
-				nextResponse, err := nextEvent(ctx)
-				if err != nil {
-					logger.Error("Error during Next Event call: ", err.Error())
-					return
-				}
-				// Next invoke will start from here
-				logger.Infof("Received Next Event as %s", nextResponse.EventType)
-				if nextResponse.EventType == lambdaapi.Shutdown {
-					consumer.DrainQueue(ctx)
-					return
-				}
+			}
+			// Next invoke will start from here
+			logger.Infof("Received Next Event as %s", nextResponse.EventType)
+			if nextResponse.EventType == lambdaapi.Shutdown {
+				consumer.DrainQueue(ctx)
+				return
+			}
 		}
 	}
 }

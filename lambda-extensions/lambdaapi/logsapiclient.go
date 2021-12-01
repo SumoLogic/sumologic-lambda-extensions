@@ -22,9 +22,10 @@ func (client *Client) SubscribeToLogsAPI(ctx context.Context, logEvents []string
 	URL := client.baseURL + logsURL
 
 	reqBody, err := json.Marshal(map[string]interface{}{
-		"destination": map[string]interface{}{"protocol": "HTTP", "URI": fmt.Sprintf("http://sandbox:%v", receiverPort)},
-		"types":       logEvents,
-		"buffering":   map[string]interface{}{"timeoutMs": timeoutMs, "maxBytes": maxBytes, "maxItems": maxItems},
+		"destination":   map[string]interface{}{"protocol": "HTTP", "URI": fmt.Sprintf("http://sandbox:%v", receiverPort)},
+		"types":         logEvents,
+		"buffering":     map[string]interface{}{"timeoutMs": timeoutMs, "maxBytes": maxBytes, "maxItems": maxItems},
+		"schemaVersion": "2021-03-18",
 	})
 	if err != nil {
 		return nil, err
