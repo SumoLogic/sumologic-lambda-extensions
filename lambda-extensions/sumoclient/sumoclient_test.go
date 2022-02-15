@@ -119,6 +119,8 @@ func TestSumoClient(t *testing.T) {
 	var reportLogs = []byte(`[{"record":{"metrics":{"billedDurationMs":120000,"durationMs":122066.85,"maxMemoryUsedMB":74,"memorySizeMB":128},"requestId":"fcea12d9-e0b4-43b2-a9a2-04d04519539f"},"time":"2020-11-02T20:33:16.536Z","type":"platform.report"}]`)
 	assertEqual(t, client.SendLogs(ctx, reportLogs), nil, "SendLogs should not generate error")
 
+	t.Log("\ntesting SendAllLogs\n======================")
+	assertEqual(t, client.SendAllLogs(ctx, multiplelargedata), nil, "SendAllLogs should not generate error")
 	//Todo remove this function from sumologic-extension
 	// t.Log("\ntesting sumo if no s3 failover\n=================")
 	// config.EnableFailover = false

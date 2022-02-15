@@ -13,11 +13,11 @@ The Sumo Logic lambda extension is available as an AWS public Layer. The latest 
 
 For x86_64 use:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:2
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:3
 
 For arm64 use:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:2
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:3
 
 
 - AWS_REGION - Replace with your AWS Lambda Region.
@@ -60,3 +60,31 @@ For Full Change Log, please visit [Releases](https://github.com/SumoLogic/sumolo
 [github-release-badge]: https://img.shields.io/github/release/sumologic/sumologic-lambda-extensions/all.svg?label=release
 
 [github-release]: https://github.com/sumologic/sumologic-lambda-extensions/releases/latest
+
+
+## Compiling
+   
+   `env GOOS=darwin go build -o "sumologic-extension" "lambda-extensions/sumologic-extension.go"`
+
+
+## Building
+   This script assumes you have aws cli already configured.
+
+   - Go to scripts folder
+   - Export Profile export AWS_PROFILE=<sumo content profile>
+   - Change the layer_name variable in zip.sh to avoid replacing the prod.
+   - Run below command
+     `sh zip.sh`
+
+## Testing
+
+   1> Unit Testing locally
+      
+    - Go to root folder and run "go test  ./..."
+
+    - Go to lambda-extensions folder and run "go test  ./..."
+
+   2> Testing with Lambda function
+
+   Add the layer arn generated from build command output to your lambda function by following instructions in [docs](https://help.sumologic.com/03Send-Data/Collect-from-Other-Data-Sources/Collect_AWS_Lambda_Logs_using_an_Extension).
+

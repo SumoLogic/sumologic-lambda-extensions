@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/utils"
@@ -22,12 +23,18 @@ var (
 	extensionClient = lambdaapi.NewClient(os.Getenv("AWS_LAMBDA_RUNTIME_API"), extensionName)
 	logger          = logrus.New().WithField("Name", extensionName)
 )
+
 var producer workers.TaskProducer
 var consumer workers.TaskConsumer
 var config *cfg.LambdaExtensionConfig
 var dataQueue chan []byte
 
 func init() {
+	Formatter := new(logrus.TextFormatter)
+	Formatter.TimestampFormat = "2006-01-02T15:04:05.999999999Z07:00"
+	Formatter.FullTimestamp = true
+	logger.Logger.SetFormatter(Formatter)
+
 	logger.Logger.SetOutput(os.Stdout)
 
 	// Creating config and performing validation
@@ -89,6 +96,7 @@ func processEvents(ctx context.Context) {
 		logger.Error("Error during Registration: ", err.Error())
 		return
 	}
+
 	// The For loop will continue till we recieve a shutdown event.
 	for {
 		select {
@@ -96,7 +104,19 @@ func processEvents(ctx context.Context) {
 			consumer.FlushDataQueue(ctx)
 			return
 		default:
-			go consumer.DrainQueue(ctx)
+			logger.Infof("Calling DrainQueue from processEvents")
+			for {
+				runtime_done := consumer.DrainQueue(ctx)
+
+				if runtime_done == 1 {
+					logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
+					break
+				} else {
+					logger.Debugf("switching to other go routine")
+					runtime.Gosched()
+				}
+			}
+
 			// This statement will freeze lambda
 			nextResponse, err := nextEvent(ctx)
 			if err != nil {
@@ -106,7 +126,7 @@ func processEvents(ctx context.Context) {
 			// Next invoke will start from here
 			logger.Infof("Received Next Event as %s", nextResponse.EventType)
 			if nextResponse.EventType == lambdaapi.Shutdown {
-				consumer.FlushDataQueue(ctx)
+				consumer.DrainQueue(ctx)
 				return
 			}
 		}

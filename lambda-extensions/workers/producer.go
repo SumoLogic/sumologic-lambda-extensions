@@ -48,14 +48,17 @@ func (httpServer *httpServer) logsHandler(writer http.ResponseWriter, request *h
 	}
 	switch request.Method {
 	case "POST":
+		defer request.Body.Close()
 		reqBody, err := ioutil.ReadAll(request.Body)
 		if err != nil {
 			// TODO: raise alert if read fails
 			httpServer.logger.Error("Read from Logs API failed: ", err.Error())
 		}
-		httpServer.logger.Debug("Producing data into dataQueue")
+
+		httpServer.logger.Debugf("Producing data into dataQueue - %d \n", len(reqBody))
 		payload := []byte(reqBody)
 		// Sends to a buffered channel block only when the buffer is full
 		httpServer.dataQueue <- payload
+		writer.WriteHeader(http.StatusOK)
 	}
 }
