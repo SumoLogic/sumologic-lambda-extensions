@@ -102,7 +102,6 @@ Loop:
 		select {
 		case rawmsg := <-sc.dataQueue:
 			rawMsgArr = append(rawMsgArr, rawmsg)
-			sc.logger.Debugf("DrainQueue: rawmsg: %s", rawmsg)
 			logsStr = fmt.Sprintf("%s", rawmsg)
 			sc.logger.Debugf("DrainQueue: logsStr: %s", logsStr)
 			if strings.Contains(logsStr, string(RuntimeDone)) {
