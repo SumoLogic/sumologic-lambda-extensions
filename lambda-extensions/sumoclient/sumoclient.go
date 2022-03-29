@@ -197,7 +197,13 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 			if ok {
 				delete(item, "record")
 			}
-			item["message"] = strings.TrimSpace(message)
+			message = strings.TrimSpace(message)
+			json, err := utils.ParseJson(message)
+			if err != nil {
+				item["message"] = message
+			} else {
+				item["message"] = json
+			}
 		} else if ok && logType == "platform.report" {
 			s.createCWLogLine(item)
 		}

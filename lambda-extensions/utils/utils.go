@@ -71,3 +71,9 @@ func PrettyPrint(v interface{}) string {
 	}
 	return string(data)
 }
+
+// ParseJson to determine whether a string is valid JSON
+func ParseJson(s string) (js map[string]interface{}, err error) {
+	err = json.Unmarshal([]byte(s), &js)
+	return
+}
