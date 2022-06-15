@@ -13,11 +13,11 @@ The Sumo Logic lambda extension is available as an AWS public Layer. The latest 
 
 For x86_64 use:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:3
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:4
 
 For arm64 use:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:3
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:4
 
 
 - AWS_REGION - Replace with your AWS Lambda Region.
