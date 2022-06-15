@@ -13,11 +13,11 @@ The Sumo Logic lambda extension is available as an AWS public Layer. The latest 
 
 For x86_64 use:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:4
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-amd64:<latest version from github release>
 
 For arm64 use:
 
-    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:4
+    arn:aws:lambda:<AWS_REGION>:956882708938:layer:sumologic-extension-arm64:<latest version from github release>
 
 
 - AWS_REGION - Replace with your AWS Lambda Region.
@@ -75,6 +75,25 @@ For Full Change Log, please visit [Releases](https://github.com/SumoLogic/sumolo
    - Change the layer_name variable in zip.sh to avoid replacing the prod.
    - Run below command
      `sh zip.sh`
+
+## Release
+Releasing new layer versions
+
+- Go to scripts folder
+- Export Profile export AWS_PROFILE=<sumo content profile>. The profile should point to sumocontnet aws account.
+- Run below command
+     `sh zip.sh`
+
+
+- The new wheel package gets released automatically after the tags are pushed using Github actions(Refer tagged-release in https://github.com/marvinpinto/action-automatic-releases).
+
+   Run below commands to create and push tags
+
+    git tag -a v<major.minor.patch> <commit_id>
+
+    git push origin v<major.minor.patch>
+
+- Add the source files and binaries manually from the target folder generated after running zip.sh
 
 ## Testing
 
