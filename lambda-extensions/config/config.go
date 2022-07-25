@@ -28,7 +28,6 @@ type LambdaExtensionConfig struct {
 	LogLevel               logrus.Level
 	MaxDataQueueLength     int
 	MaxConcurrentRequests  int
-	ProcessingSleepTime    time.Duration
 	MaxRetryAttempts       int
 	RetrySleepTime         time.Duration
 	ConnectionTimeoutValue time.Duration
@@ -52,7 +51,6 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 		LambdaRegion:           os.Getenv("AWS_REGION"),
 		SourceCategoryOverride: os.Getenv("SOURCE_CATEGORY_OVERRIDE"),
 		MaxRetryAttempts:       5,
-		RetrySleepTime:         300 * time.Millisecond,
 		ConnectionTimeoutValue: 10000 * time.Millisecond,
 		MaxDataPayloadSize:     1024 * 1024, // 1 MB
 	}
@@ -68,12 +66,13 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 }
 func (cfg *LambdaExtensionConfig) setDefaults() {
 	numRetry := os.Getenv("SUMO_NUM_RETRIES")
-	processingSleepTime := os.Getenv("SUMO_PROCESSING_SLEEP_TIME_MS")
+	retrySleepTime := os.Getenv("SUMO_RETRY_SLEEP_TIME_MS")
 	logLevel := os.Getenv("SUMO_LOG_LEVEL")
 	maxDataQueueLength := os.Getenv("SUMO_MAX_DATAQUEUE_LENGTH")
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	logTypes := os.Getenv("SUMO_LOG_TYPES")
+
 	if numRetry == "" {
 		cfg.NumRetry = 3
 	}
@@ -98,8 +97,8 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	} else {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
-	if processingSleepTime == "" {
-		cfg.ProcessingSleepTime = 0 * time.Millisecond
+	if retrySleepTime == "" {
+		cfg.RetrySleepTime =  300 * time.Millisecond
 	}
 
 }
@@ -110,7 +109,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	maxDataQueueLength := os.Getenv("SUMO_MAX_DATAQUEUE_LENGTH")
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
-	processingSleepTime := os.Getenv("SUMO_PROCESSING_SLEEP_TIME_MS")
+	retrySleepTime := os.Getenv("SUMO_RETRY_SLEEP_TIME_MS")
 
 	var allErrors []string
 	var err error
@@ -152,12 +151,12 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		}
 	}
 
-	if processingSleepTime != "" {
-		customProcessingSleepTime, err := strconv.ParseInt(processingSleepTime, 10, 32)
+	if retrySleepTime != "" {
+		customRetrySleepTime, err := strconv.ParseInt(retrySleepTime, 10, 32)
 		if err != nil {
-			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_PROCESSING_SLEEP_TIME_MS: %v", err))
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_RETRY_SLEEP_TIME_MS: %v", err))
 		} else {
-			cfg.ProcessingSleepTime = time.Duration(customProcessingSleepTime) * time.Millisecond
+			cfg.RetrySleepTime = time.Duration(customRetrySleepTime) * time.Millisecond
 		}
 	}
 
