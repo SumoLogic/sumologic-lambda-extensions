@@ -36,7 +36,8 @@ type LambdaExtensionConfig struct {
 	SourceCategoryOverride string
 }
 
-var validLogTypes = []string{"platform", "function"}
+var defaultLogTypes = []string{"platform", "function"}
+var validLogTypes = []string{"platform", "function", "extension"}
 
 // GetConfig to get config instance
 func GetConfig() (*LambdaExtensionConfig, error) {
@@ -93,7 +94,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 		cfg.AWSLambdaRuntimeAPI = "127.0.0.1:9001"
 	}
 	if logTypes == "" {
-		cfg.LogTypes = validLogTypes
+		cfg.LogTypes = defaultLogTypes
 	} else {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
