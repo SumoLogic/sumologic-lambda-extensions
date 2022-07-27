@@ -112,7 +112,6 @@ func processEvents(ctx context.Context) {
 
 			if runtime_done == 1 {
 				logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
-				break
 			}
 			// }
 
