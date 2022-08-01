@@ -93,7 +93,8 @@ Releasing new layer versions
 
     git push origin v<major.minor.patch>
 
-- Add the source files and binaries manually from the target folder generated after running zip.sh
+- Add the sumologic-extension-amd64.tar.gz and sumologic-extension-arm64.tar.gz files manually from the target folder generated after running zip.sh. 
+- Update the release description with new layer arns and more details on what's changed.
 
 ## Testing
 
