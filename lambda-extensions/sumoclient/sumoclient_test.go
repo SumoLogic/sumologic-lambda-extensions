@@ -31,6 +31,8 @@ func setupEnv() {
 	os.Setenv("SUMO_MAX_DATAQUEUE_LENGTH", "10")
 	os.Setenv("SUMO_MAX_CONCURRENT_REQUESTS", "3")
 	os.Setenv("SUMO_LOG_LEVEL", "DEBUG")
+	os.Setenv("SUMO_RETRY_SLEEP_TIME_MS", "50")
+	os.Setenv("SUMO_LOG_TYPES", "function")
 }
 
 func assertEqual(t *testing.T, a interface{}, b interface{}, message string) {

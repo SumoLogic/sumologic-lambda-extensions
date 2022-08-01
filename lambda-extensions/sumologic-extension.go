@@ -104,18 +104,16 @@ func processEvents(ctx context.Context) {
 			consumer.FlushDataQueue(ctx)
 			return
 		default:
+			logger.Debugf("switching to other go routine")
+			runtime.Gosched()
 			logger.Infof("Calling DrainQueue from processEvents")
-			for {
-				runtime_done := consumer.DrainQueue(ctx)
+			// for {
+			runtime_done := consumer.DrainQueue(ctx)
 
-				if runtime_done == 1 {
-					logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
-					break
-				} else {
-					logger.Debugf("switching to other go routine")
-					runtime.Gosched()
-				}
+			if runtime_done == 1 {
+				logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
 			}
+			// }
 
 			// This statement will freeze lambda
 			nextResponse, err := nextEvent(ctx)
