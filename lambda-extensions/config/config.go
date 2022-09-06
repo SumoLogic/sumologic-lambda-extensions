@@ -34,6 +34,7 @@ type LambdaExtensionConfig struct {
 	MaxDataPayloadSize     int
 	LambdaRegion           string
 	SourceCategoryOverride string
+	EnhanceJsonLogs        bool
 }
 
 var defaultLogTypes = []string{"platform", "function"}
@@ -73,6 +74,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	logTypes := os.Getenv("SUMO_LOG_TYPES")
+	enhanceJsonLogs := os.Getenv("SUMO_ENHANCE_JSON_LOGS")
 
 	if numRetry == "" {
 		cfg.NumRetry = 3
@@ -99,9 +101,11 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 		cfg.LogTypes = strings.Split(logTypes, ",")
 	}
 	if retrySleepTime == "" {
-		cfg.RetrySleepTime =  300 * time.Millisecond
+		cfg.RetrySleepTime = 300 * time.Millisecond
 	}
-
+	if enhanceJsonLogs == "" {
+		cfg.EnhanceJsonLogs = true
+	}
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
@@ -111,6 +115,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	maxConcurrentRequests := os.Getenv("SUMO_MAX_CONCURRENT_REQUESTS")
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	retrySleepTime := os.Getenv("SUMO_RETRY_SLEEP_TIME_MS")
+	enhanceJsonLogs := os.Getenv("SUMO_ENHANCE_JSON_LOGS")
 
 	var allErrors []string
 	var err error
@@ -187,6 +192,13 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 			cfg.LogLevel = customloglevel
 		}
 
+	}
+
+	if enhanceJsonLogs != "" {
+		cfg.EnhanceJsonLogs, err = strconv.ParseBool(enhanceJsonLogs)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_ENHANCE_JSON_LOGS: %v", err))
+		}
 	}
 
 	// test valid log format type

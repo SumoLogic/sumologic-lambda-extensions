@@ -202,7 +202,11 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 			if err != nil {
 				item["message"] = message
 			} else {
-				item["message"] = json
+				if s.config.EnhanceJsonLogs {
+					item["message"] = json
+				} else {
+					item = json
+				}
 			}
 		} else if ok && logType == "platform.report" {
 			s.createCWLogLine(item)
@@ -287,7 +291,7 @@ func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 }
 
 func (s *sumoLogicClient) SendAllLogs(ctx context.Context, allMessages [][]byte) error {
-	if (len(allMessages) == 0) {
+	if len(allMessages) == 0 {
 		s.logger.Debugf("SendAllLogs: No messages to send")
 		return nil
 	}
