@@ -35,6 +35,7 @@ type LambdaExtensionConfig struct {
 	LambdaRegion           string
 	SourceCategoryOverride string
 	EnhanceJsonLogs        bool
+	EnableSpanDrops        bool
 }
 
 var defaultLogTypes = []string{"platform", "function"}
@@ -66,6 +67,7 @@ func GetConfig() (*LambdaExtensionConfig, error) {
 	}
 	return config, nil
 }
+
 func (cfg *LambdaExtensionConfig) setDefaults() {
 	numRetry := os.Getenv("SUMO_NUM_RETRIES")
 	retrySleepTime := os.Getenv("SUMO_RETRY_SLEEP_TIME_MS")
@@ -75,6 +77,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	logTypes := os.Getenv("SUMO_LOG_TYPES")
 	enhanceJsonLogs := os.Getenv("SUMO_ENHANCE_JSON_LOGS")
+	enableSpanDrops := os.Getenv("SUMO_SPAN_DROP")
 
 	if numRetry == "" {
 		cfg.NumRetry = 3
@@ -88,7 +91,6 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	if maxConcurrentRequests == "" {
 		cfg.MaxConcurrentRequests = 3
 	}
-
 	if enableFailover == "" {
 		cfg.EnableFailover = false
 	}
@@ -106,6 +108,10 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	if enhanceJsonLogs == "" {
 		cfg.EnhanceJsonLogs = true
 	}
+	if enableSpanDrops == "" {
+		// by default, spans will not be dropped if user did not configure the env variable
+		cfg.EnableSpanDrops = false
+	}
 }
 
 func (cfg *LambdaExtensionConfig) validateConfig() error {
@@ -116,6 +122,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	enableFailover := os.Getenv("SUMO_ENABLE_FAILOVER")
 	retrySleepTime := os.Getenv("SUMO_RETRY_SLEEP_TIME_MS")
 	enhanceJsonLogs := os.Getenv("SUMO_ENHANCE_JSON_LOGS")
+	enableSpanDrops := os.Getenv("SUMO_SPAN_DROP")
 
 	var allErrors []string
 	var err error
@@ -139,7 +146,7 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		}
 	}
 
-	if cfg.EnableFailover == true {
+	if cfg.EnableFailover {
 		if cfg.S3BucketName == "" {
 			allErrors = append(allErrors, "SUMO_S3_BUCKET_NAME not set in environment variable")
 		}
@@ -173,8 +180,8 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		} else {
 			cfg.MaxDataQueueLength = int(customMaxDataQueueLength)
 		}
-
 	}
+
 	if maxConcurrentRequests != "" {
 		customMaxConcurrentRequests, err := strconv.ParseInt(maxConcurrentRequests, 10, 32)
 		if err != nil {
@@ -182,8 +189,8 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		} else {
 			cfg.MaxConcurrentRequests = int(customMaxConcurrentRequests)
 		}
-
 	}
+
 	if logLevel != "" {
 		customloglevel, err := logrus.ParseLevel(logLevel)
 		if err != nil {
@@ -191,13 +198,19 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		} else {
 			cfg.LogLevel = customloglevel
 		}
-
 	}
 
 	if enhanceJsonLogs != "" {
 		cfg.EnhanceJsonLogs, err = strconv.ParseBool(enhanceJsonLogs)
 		if err != nil {
 			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_ENHANCE_JSON_LOGS: %v", err))
+		}
+	}
+
+	if enableSpanDrops != "" {
+		cfg.EnableSpanDrops, err = strconv.ParseBool(enableSpanDrops)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse SUMO_SPAN_DROP: %v", err))
 		}
 	}
 

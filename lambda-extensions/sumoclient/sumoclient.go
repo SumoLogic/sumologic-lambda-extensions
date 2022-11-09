@@ -101,7 +101,7 @@ func (s *sumoLogicClient) failoverHandler(buf *bytes.Buffer) error {
 		}
 		err = utils.UploadToS3(&s.config.S3BucketName, &keyName, buf)
 		if err != nil {
-			err = fmt.Errorf("Failed to Send to S3 Bucket %s Path %s: %w", s.config.S3BucketName, keyName, err)
+			err = fmt.Errorf("failed to send to s3 bucket %s path %s: %w", s.config.S3BucketName, keyName, err)
 		}
 		return err
 	}
@@ -159,13 +159,22 @@ func (s *sumoLogicClient) createCWLogLine(item map[string]interface{}) {
 
 	message, ok := item["record"].(map[string]interface{})
 	if ok {
-		delete(item, "record")
+		s.logger.Debug("Not dropping record, if logType is platform.report.")
+		// delete(item, "record")
 	}
+
 	// Todo convert this to struct
+	// Updated cwMessageLine to also cover new field initDurationMs as record.metrics do have it.
 	metric := message["metrics"].(map[string]interface{})
-	cwMessageLine := fmt.Sprintf("REPORT RequestId: %v	Duration: %v ms	Billed Duration: %v ms 	Memory Size: %v MB	Max Memory Used: %v MB",
-		message["requestId"], metric["durationMs"], metric["billedDurationMs"], metric["memorySizeMB"], metric["maxMemoryUsedMB"])
-	item["message"] = cwMessageLine
+	if metric["initDurationMs"] == nil {
+		cwMessageLine := fmt.Sprintf("REPORT RequestId: %v	Duration: %v ms	Billed Duration: %v ms 	Memory Size: %v MB	Max Memory Used: %v MB",
+			message["requestId"], metric["durationMs"], metric["billedDurationMs"], metric["memorySizeMB"], metric["maxMemoryUsedMB"])
+		item["message"] = cwMessageLine
+	} else {
+		cwMessageLine := fmt.Sprintf("REPORT RequestId: %v	Duration: %v ms	Billed Duration: %v ms 	Memory Size: %v MB	Max Memory Used: %v MB	Init Duration: %v ms",
+			message["requestId"], metric["durationMs"], metric["billedDurationMs"], metric["memorySizeMB"], metric["maxMemoryUsedMB"], metric["initDurationMs"])
+		item["message"] = cwMessageLine
+	}
 }
 
 func (s *sumoLogicClient) getLogGroup() string {
@@ -210,6 +219,15 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 			}
 		} else if ok && logType == "platform.report" {
 			s.createCWLogLine(item)
+		} else if ok && logType == "platform.runtimeDone" {
+			message, ok := item["record"].(map[string]interface{})
+			if ok {
+				_, ok := message["spans"]
+				if ok && s.config.EnableSpanDrops {
+					// dropping spans if its present and configured to drop
+					delete(message, "spans")
+				}
+			}
 		}
 	}
 }
@@ -217,10 +235,10 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 func (s *sumoLogicClient) transformBytesToArrayOfMap(rawmsg []byte) (responseBody, error) {
 	s.logger.Debugln("Transforming bytes to array of maps")
 	var msg responseBody
-	var err error
-	err = json.Unmarshal(rawmsg, &msg)
+	// var err error
+	var err error = json.Unmarshal(rawmsg, &msg)
 	if err != nil {
-		return msg, fmt.Errorf("Error in parsing payload %s: %v", string(rawmsg), err)
+		return msg, fmt.Errorf("error in parsing payload %s: %v", string(rawmsg), err)
 	}
 	return msg, err
 }
@@ -253,7 +271,7 @@ func (s *sumoLogicClient) createChunks(msgArr responseBody) ([]string, error) {
 	}
 	chunks = append(chunks, currentChunk.String())
 	if errorCount > 0 {
-		err = fmt.Errorf("Dropping %d messages due to json parsing error", errorCount)
+		err = fmt.Errorf("dropping %d messages due to json parsing error", errorCount)
 	}
 	s.logger.Debugf("Chunks created: %d NumOfParsingError: %d", len(chunks), errorCount)
 	return chunks, err

@@ -85,7 +85,7 @@ Releasing new layer versions
      `sh zip.sh`
 
 
-- The new wheel package gets released automatically after the tags are pushed using Github actions(Refer tagged-release in https://github.com/marvinpinto/action-automatic-releases).
+- The new extension binary and zip files gets released automatically after the tags are pushed using Github actions(Refer tagged-release in https://github.com/marvinpinto/action-automatic-releases).
 
    Run below commands to create and push tags
 

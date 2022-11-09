@@ -64,13 +64,14 @@ func runTimeAPIInit() (int64, error) {
 	}
 	logger.Debug("Succcessfully Registered with Run Time API Client: ", utils.PrettyPrint(registerResponse))
 
-	// Subscribe to Logs API
-	logger.Debug("Subscribing Extension to Logs API........")
-	subscribeResponse, err := extensionClient.SubscribeToLogsAPI(nil, config.LogTypes)
+	// Subscribe to Telemetry API
+	logger.Debug("Subscribing Extension to Telemetry API........")
+	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(nil, config.LogTypes)
 	if err != nil {
 		return 0, err
 	}
-	logger.Debug("Successfully subscribed to Logs API: ", utils.PrettyPrint(string(subscribeResponse)))
+
+	logger.Debug("Successfully subscribed to Telemetry API: ", utils.PrettyPrint(string(subscribeResponse)))
 
 	// Call next to say registration is successful and get the deadtimems
 	nextResponse, err := nextEvent(nil)
