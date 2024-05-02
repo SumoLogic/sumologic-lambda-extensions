@@ -72,7 +72,7 @@ func (s *sumoLogicClient) getColdStart() bool {
 func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*http.Response, error) {
 	endpoint, err := s.getHttpEndpoint()
 	if err != nil {
-		err = fmt.Errorf("Failed to get SUMO HTTP Endpoint", err)
+		err = fmt.Errorf("Failed to get SUMO HTTP Endpoint error: %v", err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "POST", endpoint, buf)
@@ -106,14 +106,14 @@ func (s *sumoLogicClient) getHttpEndpoint() (string, error) {
 		
 		cfg, err := awsConfig.LoadDefaultConfig(context.TODO())
 		if err != nil {
-			fmt.Errorf("Configuration error in aws client,", err)
+			fmt.Errorf("Configuration error in aws client, error: %v", err)
 		}
 
 		client := kms.NewFromConfig(cfg)
 
 		blob, err := b64.StdEncoding.DecodeString(s.config.SumoHTTPEndpoint)
 		if err != nil {
-			fmt.Errorf("Error converting string to blob,", err)
+			fmt.Errorf("Error converting string to blob, error: %v", err)
 		}
 	
 		input := &kms.DecryptInput{
@@ -124,7 +124,7 @@ func (s *sumoLogicClient) getHttpEndpoint() (string, error) {
 		result, err := DecodeData(context.TODO(), client, input)
 		
 		if err != nil {
-			fmt.Errorf("Got error decrypting data: ", err)
+			fmt.Errorf("Got error decrypting data, error: %v", err)
 			return "", err
 		}
 
