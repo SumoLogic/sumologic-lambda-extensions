@@ -26,10 +26,10 @@ func TestSubscribeToTelemetryAPI(t *testing.T) {
 	client := NewClient(srv.URL[7:], extensionName)
 
 	// Without Context
-	response, err := client.SubscribeToTelemetryAPI(nil, []string{"platform", "function", "extension"})
+	response, err := client.SubscribeToTelemetryAPI(nil, []string{"platform", "function", "extension"}, 1000, 262144, 10000)
 	commonAsserts(t, client, response, err)
 
 	// With Context
-	response, err = client.SubscribeToTelemetryAPI(context.Background(), []string{"platform", "function", "extension"})
+	response, err = client.SubscribeToTelemetryAPI(context.Background(), []string{"platform", "function", "extension"}, 1000, 262144, 10000)
 	commonAsserts(t, client, response, err)
 }

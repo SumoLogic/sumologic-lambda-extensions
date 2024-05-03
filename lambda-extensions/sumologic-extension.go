@@ -66,7 +66,7 @@ func runTimeAPIInit() (int64, error) {
 
 	// Subscribe to Telemetry API
 	logger.Debug("Subscribing Extension to Telemetry API........")
-	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(nil, config.LogTypes)
+	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(nil, config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems)
 	if err != nil {
 		return 0, err
 	}
