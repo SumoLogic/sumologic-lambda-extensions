@@ -257,7 +257,7 @@ func (s *sumoLogicClient) getLogStream() string {
 
 func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 	s.logger.Debugln("Enhancing logs")
-	for _, item := range msg {
+	for idx, item := range msg {
 		// item["FunctionName"] = s.config.FunctionName
 		// item["FunctionVersion"] = s.config.FunctionVersion
 		// creating loggroup/logstream as they are not available in Env.
@@ -277,12 +277,18 @@ func (s *sumoLogicClient) enhanceLogs(msg responseBody) {
 			message = strings.TrimSpace(message)
 			json, err := utils.ParseJson(message)
 			if err != nil {
-				item["message"] = message
+				if s.config.EnhanceJsonLogs {
+					item["message"] = message
+				} else {
+					s.logger.Debug("EnhanceJsonLogs disabled sending only message.")
+					msg[idx] = map[string]interface{}{"message": message}
+				}
 			} else {
 				if s.config.EnhanceJsonLogs {
 					item["message"] = json
 				} else {
-					item = json
+					s.logger.Debug("EnhanceJsonLogs disabled sending only json log.")
+					msg[idx] = json
 				}
 			}
 		} else if ok && logType == "platform.report" {
