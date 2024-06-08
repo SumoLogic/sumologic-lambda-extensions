@@ -27,13 +27,11 @@ First of all, thanks for contributing!. Before contributing please read the [COD
 
 ## Testing
 
-   1> Unit Testing locally
+   1. Unit Testing locally
+      * Go to root folder and run `go test  ./...`
+      * Go to lambda-extensions folder and run `go test  ./...`
 
-    - Go to root folder and run "go test  ./..."
-
-    - Go to lambda-extensions folder and run "go test  ./..."
-
-   2> Testing with Lambda function
+   2. Testing with Lambda function
 
    Add the layer arn generated from build command output to your lambda function by following instructions in [docs](https://help.sumologic.com/03Send-Data/Collect-from-Other-Data-Sources/Collect_AWS_Lambda_Logs_using_an_Extension).Test by running the function manually. Confirm that logs are coming to Sumo Logic.
 
@@ -53,11 +51,11 @@ First of all, thanks for contributing!. Before contributing please read the [COD
 
      Run below commands to create and push tags
 
-      git tag -a v<major.minor.patch> <commit_id>
+      `git tag -a v<major.minor.patch> <commit_id>`
 
-      git push origin v<major.minor.patch>
+      `git push origin v<major.minor.patch>`
 
-  - Add the sumologic-extension-amd64.tar.gz and sumologic-extension-arm64.tar.gz files manually from the target folder generated after running zip.sh.
+  - Add the `sumologic-extension-amd64.tar.gz` and `sumologic-extension-arm64.tar.gz` files manually from the target folder generated after running zip.sh.
   - Update the release description with new layer arns and more details on what's changed.
 
 
