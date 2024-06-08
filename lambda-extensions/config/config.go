@@ -38,6 +38,9 @@ type LambdaExtensionConfig struct {
 	EnhanceJsonLogs        bool
 	EnableSpanDrops        bool
 	KmsCacheSeconds        int64
+	TelemetryTimeoutMs     int
+	TelemetryMaxBytes      int64
+	TelemetryMaxItems      int
 }
 
 var defaultLogTypes = []string{"platform", "function"}
@@ -82,6 +85,22 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 	enhanceJsonLogs := os.Getenv("SUMO_ENHANCE_JSON_LOGS")
 	enableSpanDrops := os.Getenv("SUMO_SPAN_DROP")
 	kmsCacheSeconds := os.Getenv("KMS_CACHE_SECONDS")
+	telemetryTimeoutMs := os.Getenv("TELEMETRY_TIMEOUT_MS")
+	telemetryMaxBytes := os.Getenv("TELEMETRY_MAX_BYTES")
+	telemetryMaxItems := os.Getenv("TELEMETRY_MAX_ITEMS")
+
+	if telemetryTimeoutMs == "" {
+		cfg.TelemetryTimeoutMs = 1000
+	}
+
+	if telemetryMaxBytes == "" {
+		cfg.TelemetryMaxBytes = 262144
+	}
+
+	if telemetryMaxItems == "" {
+		cfg.TelemetryMaxItems = 10000
+	}
+
 
 	if numRetry == "" {
 		cfg.NumRetry = 3
@@ -141,6 +160,9 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 	enhanceJsonLogs := os.Getenv("SUMO_ENHANCE_JSON_LOGS")
 	enableSpanDrops := os.Getenv("SUMO_SPAN_DROP")
 	kmsCacheSeconds := os.Getenv("KMS_CACHE_SECONDS")
+	telemetryTimeoutMs := os.Getenv("TELEMETRY_TIMEOUT_MS")
+	telemetryMaxBytes := os.Getenv("TELEMETRY_MAX_BYTES")
+	telemetryMaxItems := os.Getenv("TELEMETRY_MAX_ITEMS")
 
 	var allErrors []string
 	var err error
@@ -238,6 +260,38 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 			allErrors = append(allErrors, fmt.Sprintf("Unable to parse KMS_CACHE_SECONDS: %v", err))
 		}
 	}
+
+	if telemetryTimeoutMs != "" {
+		telemetryTimeoutMs, err := strconv.ParseInt(telemetryTimeoutMs, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse TELEMETRY_TIMEOUT_MS: %v", err))
+		} else {
+			cfg.TelemetryTimeoutMs = int(telemetryTimeoutMs)
+		}
+		cfg.TelemetryTimeoutMs = max(cfg.TelemetryTimeoutMs, 25)
+		cfg.TelemetryTimeoutMs = min(cfg.TelemetryTimeoutMs, 30000)
+	}
+
+	if telemetryMaxBytes != "" {
+		cfg.TelemetryMaxBytes, err = strconv.ParseInt(telemetryMaxBytes, 10, 64)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse TELEMETRY_MAX_BYTES: %v", err))
+		}
+		cfg.TelemetryMaxBytes = max(cfg.TelemetryMaxBytes, 262144)
+		cfg.TelemetryMaxBytes = min(cfg.TelemetryMaxBytes, 1048576)
+	}
+
+	if telemetryMaxItems != "" {
+		telemetryMaxItems, err := strconv.ParseInt(telemetryMaxItems, 10, 32)
+		if err != nil {
+			allErrors = append(allErrors, fmt.Sprintf("Unable to parse TELEMETRY_MAX_ITEMS: %v", err))
+		} else {
+			cfg.TelemetryMaxItems = int(telemetryMaxItems)
+		}
+		cfg.TelemetryMaxItems = max(cfg.TelemetryMaxItems, 1000)
+		cfg.TelemetryMaxItems = min(cfg.TelemetryMaxItems, 10000)
+	}
+
 
 	// test valid log format type
 	for _, logType := range cfg.LogTypes {
