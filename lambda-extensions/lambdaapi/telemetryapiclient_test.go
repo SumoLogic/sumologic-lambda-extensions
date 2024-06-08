@@ -2,7 +2,7 @@ package lambdaapi
 
 import (
 	"context"
-	"io/ioutil"
+	ioutil "io"
 	"net/http"
 	"net/http/httptest"
 	"testing"

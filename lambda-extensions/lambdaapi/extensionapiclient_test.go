@@ -3,7 +3,7 @@ package lambdaapi
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	ioutil "io"
 	"net/http"
 	"net/http/httptest"
 	"testing"

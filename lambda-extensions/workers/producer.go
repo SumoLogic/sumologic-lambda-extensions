@@ -2,7 +2,7 @@ package workers
 
 import (
 	"fmt"
-	"io/ioutil"
+	ioutil "io"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
