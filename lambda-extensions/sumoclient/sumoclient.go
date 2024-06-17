@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
+	"os"
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/utils"
 
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/config"
@@ -73,6 +73,7 @@ func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*
 	endpoint, err := s.getHttpEndpoint()
 	if err != nil {
 		err = fmt.Errorf("Failed to get SUMO HTTP Endpoint error: %v", err)
+		return nil, err
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "POST", endpoint, buf)
@@ -94,6 +95,7 @@ func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*
 
 // Use cached KMS decrypted endpoint, refresh the cached endpoint, or return unencrypted endpoint
 func (s *sumoLogicClient) getHttpEndpoint() (string, error) {
+
 	if s.config.KMSKeyId == "" {
 		return s.config.SumoHTTPEndpoint, nil
 	}
@@ -114,11 +116,13 @@ func (s *sumoLogicClient) getHttpEndpoint() (string, error) {
 		blob, err := b64.StdEncoding.DecodeString(s.config.SumoHTTPEndpoint)
 		if err != nil {
 			fmt.Errorf("Error converting string to blob, error: %v", err)
+			return "", err
 		}
 	
 		input := &kms.DecryptInput{
-			CiphertextBlob: blob,
-			KeyId:          aws.String(s.config.KMSKeyId),
+			CiphertextBlob:     blob,
+			KeyId:              aws.String(s.config.KMSKeyId),
+			EncryptionContext:  map[string]string{"LambdaFunctionName": os.Getenv("AWS_LAMBDA_FUNCTION_NAME")},
 		}
 	
 		result, err := DecodeData(context.TODO(), client, input)
