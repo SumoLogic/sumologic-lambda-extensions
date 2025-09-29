@@ -49,7 +49,11 @@ func init() {
 
 	// Start HTTP Server before subscription in a goRoutine
 	producer = workers.NewTaskProducer(dataQueue, logger)
-	go producer.Start()
+	go func() {
+		if err := producer.Start(); err != nil {
+			logger.Errorf("producer Start failed: %v", err)
+		}
+	}()
 
 	// Creating SumoTaskConsumer
 	consumer = workers.NewTaskConsumer(dataQueue, config, logger)
@@ -58,7 +62,7 @@ func init() {
 func runTimeAPIInit() (int64, error) {
 	// Register early so Runtime could start in parallel
 	logger.Debug("Registering Extension to Run Time API Client..........")
-	registerResponse, err := extensionClient.RegisterExtension(nil)
+	registerResponse, err := extensionClient.RegisterExtension(context.TODO())
 	if err != nil {
 		return 0, err
 	}
@@ -66,7 +70,7 @@ func runTimeAPIInit() (int64, error) {
 
 	// Subscribe to Telemetry API
 	logger.Debug("Subscribing Extension to Telemetry API........")
-	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(nil, config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems)
+	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(context.TODO(), config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems)
 	if err != nil {
 		return 0, err
 	}
@@ -74,7 +78,7 @@ func runTimeAPIInit() (int64, error) {
 	logger.Debug("Successfully subscribed to Telemetry API: ", utils.PrettyPrint(string(subscribeResponse)))
 
 	// Call next to say registration is successful and get the deadtimems
-	nextResponse, err := nextEvent(nil)
+	nextResponse, err := nextEvent(context.TODO())
 	if err != nil {
 		return 0, err
 	}
@@ -146,7 +150,10 @@ func main() {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("Extension failed:", err)
-			nextEvent(ctx)
+			_, err := nextEvent(ctx)
+			if err != nil {
+				logger.Error("error during Next Event call: ", err.Error())
+			}
 		}
 	}()
 	// Will block until shutdown event is received or cancelled via the context.

@@ -48,7 +48,11 @@ func (httpServer *httpServer) logsHandler(writer http.ResponseWriter, request *h
 	}
 	switch request.Method {
 	case "POST":
-		defer request.Body.Close()
+		defer func() {
+			if err := request.Body.Close(); err != nil {
+				httpServer.logger.Errorf("failed to close body: %v", err)
+			}
+		}()
 		reqBody, err := ioutil.ReadAll(request.Body)
 		if err != nil {
 			// TODO: raise alert if read fails

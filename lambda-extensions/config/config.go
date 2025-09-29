@@ -101,7 +101,6 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 		cfg.TelemetryMaxItems = 10000
 	}
 
-
 	if numRetry == "" {
 		cfg.NumRetry = 3
 	}
@@ -144,7 +143,7 @@ func (cfg *LambdaExtensionConfig) setDefaults() {
 		// by default, spans will not be dropped if user did not configure the env variable
 		cfg.EnableSpanDrops = false
 	}
-	
+
 	if kmsCacheSeconds == "" {
 		cfg.KmsCacheSeconds = 5
 	}
@@ -291,7 +290,6 @@ func (cfg *LambdaExtensionConfig) validateConfig() error {
 		cfg.TelemetryMaxItems = max(cfg.TelemetryMaxItems, 1000)
 		cfg.TelemetryMaxItems = min(cfg.TelemetryMaxItems, 10000)
 	}
-
 
 	// test valid log format type
 	for _, logType := range cfg.LogTypes {

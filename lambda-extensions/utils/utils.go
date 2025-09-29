@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 //------------------Retry Logic Code-------------------------------
@@ -18,7 +19,7 @@ type Func func(attempt int) (retry bool, err error)
 func Retry(fn Func, maxRetries int) error {
 	var err error
 	var cont bool
-	var attempt int = 1
+	var attempt = 1
 	for {
 		if attempt > maxRetries {
 			return errMaxRetriesReached
@@ -44,23 +45,35 @@ func StringInSlice(a string, list []string) bool {
 }
 
 // Compress compresses string and returns byte array
-func Compress(logStringToSend *string) []byte {
-
+func Compress(logStringToSend *string) ([]byte, error) {
 	var buf bytes.Buffer
 	g := gzip.NewWriter(&buf)
-	g.Write([]byte(*logStringToSend))
-	g.Close()
-	return buf.Bytes()
+
+	if _, err := g.Write([]byte(*logStringToSend)); err != nil {
+		return nil, fmt.Errorf("failed to write log string: %w", err)
+	}
+
+	if err := g.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 // CompressBuffer compresses string and returns byte array
-func CompressBuffer(inputbuf *bytes.Buffer) *bytes.Buffer {
-
+func CompressBuffer(inputbuf *bytes.Buffer) (*bytes.Buffer, error) {
 	var outputbuf bytes.Buffer
 	g := gzip.NewWriter(&outputbuf)
-	g.Write(inputbuf.Bytes())
-	g.Close()
-	return &outputbuf
+
+	if _, err := g.Write(inputbuf.Bytes()); err != nil {
+		return nil, fmt.Errorf("failed to compress buffer: %w", err)
+	}
+
+	if err := g.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	return &outputbuf, nil
 }
 
 // PrettyPrint is to print the object

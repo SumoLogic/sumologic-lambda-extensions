@@ -8,9 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
-	"os"
+
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/utils"
 
 	"github.com/SumoLogic/sumologic-lambda-extensions/lambda-extensions/config"
@@ -72,7 +73,7 @@ func (s *sumoLogicClient) getColdStart() bool {
 func (s *sumoLogicClient) makeRequest(ctx context.Context, buf *bytes.Buffer) (*http.Response, error) {
 	endpoint, err := s.getHttpEndpoint()
 	if err != nil {
-		err = fmt.Errorf("Failed to get SUMO HTTP Endpoint error: %v", err)
+		err = fmt.Errorf("failed to get SUMO HTTP Endpoint error: %v", err)
 		return nil, err
 	}
 
@@ -105,31 +106,29 @@ func (s *sumoLogicClient) getHttpEndpoint() (string, error) {
 	}
 
 	if s.config.KMSKeyId != "" && (time.Until(kmsEndpointCacheTime) <= 0 || s.config.KmsCacheSeconds == 0) {
-		
+
 		cfg, err := awsConfig.LoadDefaultConfig(context.TODO())
 		if err != nil {
-			fmt.Errorf("Configuration error in aws client, error: %v", err)
+			return "", fmt.Errorf("configuration error in aws client, error: %v", err)
 		}
 
 		client := kms.NewFromConfig(cfg)
 
 		blob, err := b64.StdEncoding.DecodeString(s.config.SumoHTTPEndpoint)
 		if err != nil {
-			fmt.Errorf("Error converting string to blob, error: %v", err)
-			return "", err
+			return "", fmt.Errorf("error converting string to blob, error: %v", err)
 		}
-	
+
 		input := &kms.DecryptInput{
-			CiphertextBlob:     blob,
-			KeyId:              aws.String(s.config.KMSKeyId),
-			EncryptionContext:  map[string]string{"LambdaFunctionName": os.Getenv("AWS_LAMBDA_FUNCTION_NAME")},
+			CiphertextBlob:    blob,
+			KeyId:             aws.String(s.config.KMSKeyId),
+			EncryptionContext: map[string]string{"LambdaFunctionName": os.Getenv("AWS_LAMBDA_FUNCTION_NAME")},
 		}
-	
+
 		result, err := DecodeData(context.TODO(), client, input)
-		
+
 		if err != nil {
-			fmt.Errorf("Got error decrypting data, error: %v", err)
-			return "", err
+			return "", fmt.Errorf("got error decrypting data, error: %v", err)
 		}
 
 		// Set the decrypted endpoint var as decrypted string to use as cache
@@ -141,7 +140,7 @@ func (s *sumoLogicClient) getHttpEndpoint() (string, error) {
 		return decryptedSumoHttpEndpoint, nil
 	}
 
-	err := fmt.Errorf("Failed to select a valid Sumo HTTP endpoint")
+	err := fmt.Errorf("failed to select a valid Sumo HTTP endpoint")
 
 	return "", err
 }
@@ -185,8 +184,8 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 
 	if len(msgQueue) > 0 && s.config.EnableFailover {
 		s.logger.Debugf("FlushAll - Attempting to send %d payloads from dataqueue to S3", len(msgQueue))
-		var errorCount int = 0
-		var totalitems int = 0
+		var errorCount = 0
+		var totalitems = 0
 		var payload bytes.Buffer
 		for _, rawmsg := range msgQueue {
 			// converting to arr of maps
@@ -205,7 +204,7 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 				for _, item := range msgArr {
 					b, err := json.Marshal(item)
 					if err != nil {
-						s.logger.Error("FlushAll - Error in coverting to json: ", err.Error())
+						s.logger.Error("FlushAll - Error in converting to json: ", err.Error())
 						errorCount++
 						continue
 					}
@@ -214,15 +213,19 @@ func (s *sumoLogicClient) FlushAll(msgQueue [][]byte) error {
 			}
 		}
 		s.logger.Debugf("FlushAll - Total log lines transformed: %d", totalitems)
+		var gzippedBuffer *bytes.Buffer
 
 		// compressing and pushing to S3
-		gzippedBuffer := utils.CompressBuffer(&payload)
+		gzippedBuffer, err = utils.CompressBuffer(&payload)
+		if err != nil {
+			return fmt.Errorf("flushAll - failed to compress log string: %w", err)
+		}
 		senderr := s.failoverHandler(gzippedBuffer)
 		if errorCount > 0 || senderr != nil {
-			err = fmt.Errorf("FlushAll - Errors during chunk creation: %d, Errors during flushing to S3: %v", errorCount, senderr)
+			return fmt.Errorf("flushAll - errors during chunk creation: %d, errors during flushing to S3: %v", errorCount, senderr)
 		}
 	} else {
-		s.logger.Info("FlushAll - Dropping messages as no failover enabled.")
+		s.logger.Info("flushAll - Dropping messages as no failover enabled.")
 	}
 	return err
 }
@@ -314,7 +317,7 @@ func (s *sumoLogicClient) transformBytesToArrayOfMap(rawmsg []byte) (responseBod
 	s.logger.Debugln("Transforming bytes to array of maps")
 	var msg responseBody
 	// var err error
-	var err error = json.Unmarshal(rawmsg, &msg)
+	var err = json.Unmarshal(rawmsg, &msg)
 	if err != nil {
 		return msg, fmt.Errorf("error in parsing payload %s: %v", string(rawmsg), err)
 	}
@@ -326,9 +329,9 @@ func (s *sumoLogicClient) createChunks(msgArr responseBody) ([]string, error) {
 	var err error
 	var chunks []string
 	var itemSize int
-	var chunkSize int = 0
+	var chunkSize = 0
 	var currentChunk bytes.Buffer
-	var errorCount int = 0
+	var errorCount = 0
 	for _, item := range msgArr {
 		b, err := json.Marshal(item)
 		if err != nil {
@@ -371,7 +374,7 @@ func (s *sumoLogicClient) SendLogs(ctx context.Context, rawmsg []byte) error {
 		if err != nil {
 			return fmt.Errorf("SendLogs - createChunks failed: %v", err)
 		}
-		var errorCount int = 0
+		var errorCount = 0
 		for _, strobj := range chunks {
 			err := s.postToSumo(ctx, &strobj)
 			if err != nil {
@@ -394,8 +397,8 @@ func (s *sumoLogicClient) SendAllLogs(ctx context.Context, allMessages [][]byte)
 
 	s.logger.Debugf("SendAllLogs: Attempting to send %d payloads from dataqueue to SumoLogic", len(allMessages))
 
-	var errorCount int = 0
-	var totalitems int = 0
+	var errorCount = 0
+	var totalitems = 0
 	var payload responseBody
 	for _, rawmsg := range allMessages {
 		// converting to arr of maps
@@ -411,9 +414,8 @@ func (s *sumoLogicClient) SendAllLogs(ctx context.Context, allMessages [][]byte)
 			s.enhanceLogs(msgArr)
 			totalitems += len(msgArr)
 			// converting back to string
-			for _, item := range msgArr {
-				payload = append(payload, item)
-			}
+			payload = append(payload, msgArr...)
+
 		}
 	}
 	s.logger.Debugf("SendAllLogs: Enhanced TotalLogItems - %d \n", totalitems)
@@ -443,7 +445,10 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	s.logger.Debug("postToSumo: Attempting to send to Sumo Endpoint")
 
 	// compressing here because Sumo recommends payload size of 1MB before compression
-	bytedata := utils.Compress(logStringToSend)
+	bytedata, err := utils.Compress(logStringToSend)
+	if err != nil {
+		return fmt.Errorf("failed to compress log string: %w", err)
+	}
 	createBuffer := func() *bytes.Buffer {
 		dest := make([]byte, len(bytedata))
 		copy(dest, bytedata)
@@ -452,7 +457,11 @@ func (s *sumoLogicClient) postToSumo(ctx context.Context, logStringToSend *strin
 	buf := createBuffer()
 	response, err := s.makeRequest(ctx, buf)
 	if response != nil {
-		defer response.Body.Close()
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				s.logger.Debugf("failed to close body: %v", err)
+			}
+		}()
 	}
 	if (err != nil) || (response.StatusCode != 200 && response.StatusCode != 302 && response.StatusCode < 500) {
 		s.logger.Errorf("postToSumo: Not able to post statuscode -  %v %v\n", err, response)

@@ -11,7 +11,7 @@ const (
 	// Base URL for telemetry api extension
 	telemetryURL = "2022-07-01/telemetry"
 	// Subscription Body Constants. Subscribe to platform logs and receive them on ${local_ip}:4243 via HTTP protocol.
-	telemetry_receiverPort = 4243
+	//telemetry_receiverPort = 4243
 )
 
 // SubscribeToLogsAPI is - Subscribe to Logs API to receive the Lambda Logs.

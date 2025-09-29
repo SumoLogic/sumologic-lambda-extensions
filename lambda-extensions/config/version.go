@@ -8,7 +8,7 @@ import (
 
 // ExtensionName same as binary name or file name where main exists
 var ExtensionName = filepath.Base(os.Args[0])
-var layerVersion = "9"
+var layerVersion = "10"
 
 // SumoLogicExtensionLayerVersionSuffix denotes the layer version published in AWS
 var SumoLogicExtensionLayerVersionSuffix string = fmt.Sprintf("%s-prod:%s", ExtensionName, layerVersion)
