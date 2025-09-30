@@ -29,4 +29,6 @@ jobs:
         run: env GOOS=linux go build -o "sumologic-extension" "lambda-extensions/sumologic-extension.go"
 
       - name: Run Unit Tests
+        env:
+          AWS_REGION: us-east-1
         run: go test  ./...

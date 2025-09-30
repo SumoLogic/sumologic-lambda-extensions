@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/sts"
 )
 
 var uploader *manager.Uploader
@@ -18,6 +17,7 @@ func init() {
 	if !found {
 		awsRegion = os.Getenv("AWS_REGION")
 	}
+    fmt.Println("awsRegion:-->", awsRegion)
 
 	// Load AWS default config with region
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
@@ -26,26 +26,13 @@ func init() {
 	if err != nil {
 		panic("unable to load AWS SDK config, " + err.Error())
 	}
+    fmt.Printf("CFG --> %+v\n", cfg)
 
 	// Create S3 client
 	s3Client := s3.NewFromConfig(cfg)
 
 	// Create uploader
 	uploader = manager.NewUploader(s3Client)
-
-	// Create STS client to get account ID
-    stsClient := sts.NewFromConfig(cfg)
-    // Get caller identity
-    identity, err := stsClient.GetCallerIdentity(context.TODO(), &sts.GetCallerIdentityInput{})
-    if err != nil {
-        panic("unable to get AWS caller identity: " + err.Error())
-    }
-
-    // Print complete identity
-    fmt.Println("AWS Caller Identity:")
-    fmt.Println("Account ID:", *identity.Account)
-    fmt.Println("ARN       :", *identity.Arn)
-    fmt.Println("UserID    :", *identity.UserId)
 }
 
 // UploadToS3 sends data to S3
