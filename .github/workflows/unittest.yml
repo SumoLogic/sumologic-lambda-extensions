@@ -2,6 +2,9 @@
 
 name: build-and-test
 
+permissions:
+  id-token: write
+  contents: read
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the main branch
 on:
