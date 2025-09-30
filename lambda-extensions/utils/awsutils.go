@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-    "fmt"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -17,7 +16,6 @@ func init() {
 	if !found {
 		awsRegion = os.Getenv("AWS_REGION")
 	}
-    fmt.Println("awsRegion:-->", awsRegion)
 
 	// Load AWS default config with region
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
@@ -26,7 +24,6 @@ func init() {
 	if err != nil {
 		panic("unable to load AWS SDK config, " + err.Error())
 	}
-    fmt.Printf("CFG --> %+v\n", cfg)
 
 	// Create S3 client
 	s3Client := s3.NewFromConfig(cfg)
