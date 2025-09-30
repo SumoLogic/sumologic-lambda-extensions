@@ -28,6 +28,12 @@ jobs:
       - name: Checking compilation errors while generating image
         run: env GOOS=linux go build -o "sumologic-extension" "lambda-extensions/sumologic-extension.go"
 
+      - name: Configure AWS credentials via OIDC and IAM Role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::285573938264:role/LambdaExtensionPublishRole
+          aws-region: us-east-1
+
       - name: Run Unit Tests
         env:
           AWS_REGION: us-east-1
