@@ -19,7 +19,7 @@ import (
 
 func setupEnv() {
 	_ = os.Setenv("SUMO_NUM_RETRIES", "3")
-	_ = os.Setenv("SUMO_S3_BUCKET_NAME", "test-bucket-sumo-90")
+	_ = os.Setenv("SUMO_S3_BUCKET_NAME", "test-bucket-lambda-extension")
 	_ = os.Setenv("SUMO_S3_BUCKET_REGION", "us-east-1")
 	_ = os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "himlambda")
 	_ = os.Setenv("AWS_LAMBDA_FUNCTION_VERSION", "Latest$")

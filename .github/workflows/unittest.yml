@@ -34,7 +34,7 @@ jobs:
       - name: Configure AWS credentials via OIDC and IAM Role
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::285573938264:role/LambdaExtensionPublishRole
+          role-to-assume: arn:aws:iam::956882708938:role/LambdaExtensionPublishRole
           aws-region: us-east-1
 
       - name: Run Unit Tests
