@@ -36,14 +36,30 @@ First of all, thanks for contributing!. Before contributing please read the [COD
    Add the layer arn generated from build command output to your lambda function by following instructions in [docs](https://help.sumologic.com/03Send-Data/Collect-from-Other-Data-Sources/Collect_AWS_Lambda_Logs_using_an_Extension).Test by running the function manually. Confirm that logs are coming to Sumo Logic.
 
 ## Releasing the layers
-  1. Change the *AWS_PROFILE* environment variable using below command. The profile should point to sumocontent aws account.
-    `export AWS_PROFILE=<sumo content profile>`
-  1. Update the layer version in *config/version.go*.
-  1. Go to scripts folder
-    `cd scripts/`
-  1. Change the layer_name variable in zip.sh to avoid replacing the prod.
-  1. Run below command
-    `sh zip.sh`
+
+### Notes on AWS Lambda Layer Versions
+- Lambda **layer versions are immutable**.
+  - Once a version (e.g., `v10`) is published, its code and content cannot be modified.
+  - If changes are needed, you must publish a **new version** (e.g., `v11`).
+
+- Once you **delete a Lambda layer version** (like `v10`), it’s permanently gone.
+  - You cannot reuse or re-publish that same version number.
+  - Any new Lambda function or update trying to reference `v10` will fail.
+
+- Existing Lambda functions that were already using `v10` may still run for a while,
+  because AWS caches the layer code internally.
+  - However, once you update or redeploy them, `v10` will no longer be available.
+
+1. Change the *AWS_PROFILE* environment variable using below command. The profile should point to sumocontent aws account.
+  `export AWS_PROFILE=<sumo content profile>`
+1. Update the layer version in *config/version.go*.
+1. Go to scripts folder
+  `cd scripts/`
+1. Change the layer_name variable in zip.sh to avoid replacing the prod.
+1. Run the following command to publish the layer:
+   `sh zip.sh`
+1. Run the following command to verify that the layer version is published across regions:
+   `sh verify_layer_versions.sh`
 
 ### Github Release
 
