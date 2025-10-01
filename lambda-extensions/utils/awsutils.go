@@ -1,42 +1,43 @@
 package utils
 
 import (
+	"context"
 	"io"
 	"os"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-var uploader *s3manager.Uploader
-var sess *session.Session
+var uploader *manager.Uploader
 
 func init() {
-
-	var awsRegion, found = os.LookupEnv("SUMO_S3_BUCKET_REGION")
-
+	awsRegion, found := os.LookupEnv("SUMO_S3_BUCKET_REGION")
 	if !found {
 		awsRegion = os.Getenv("AWS_REGION")
 	}
 
-	sess = session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(awsRegion)}))
+	// Load AWS default config with region
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(awsRegion),
+	)
+	if err != nil {
+		panic("unable to load AWS SDK config, " + err.Error())
+	}
 
-	// Create an uploader with the session and default options
-	uploader = s3manager.NewUploader(sess)
+	// Create S3 client
+	s3Client := s3.NewFromConfig(cfg)
 
+	// Create uploader
+	uploader = manager.NewUploader(s3Client)
 }
 
-// UploadToS3 send data to S3
+// UploadToS3 sends data to S3
 func UploadToS3(bucketName *string, keyName *string, data io.Reader) error {
-
-	upParams := &s3manager.UploadInput{
+	_, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
 		Bucket: bucketName,
 		Key:    keyName,
 		Body:   data,
-	}
-	_, err := uploader.Upload(upParams)
-
+	})
 	return err
 }

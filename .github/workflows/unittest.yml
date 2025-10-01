@@ -2,6 +2,9 @@
 
 name: build-and-test
 
+permissions:
+  id-token: write
+  contents: read
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events but only for the main branch
 on:
@@ -23,10 +26,18 @@ jobs:
       - name: Setup Go environment
         uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version: 1.24
 
       - name: Checking compilation errors while generating image
         run: env GOOS=linux go build -o "sumologic-extension" "lambda-extensions/sumologic-extension.go"
 
+      - name: Configure AWS credentials via OIDC and IAM Role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::956882708938:role/LambdaExtensionPublishRole
+          aws-region: us-east-1
+
       - name: Run Unit Tests
+        env:
+          AWS_REGION: us-east-1
         run: go test  ./...

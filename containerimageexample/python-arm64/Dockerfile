@@ -1,27 +1,21 @@
 # Define global args
 ARG FUNCTION_DIR="app"
-ARG RUNTIME_VERSION="3.9"
-ARG DISTRO_VERSION="3.12"
-
+ARG RUNTIME_VERSION="3.13.7"
 # Stage 1 - bundle base image + runtime
-# Grab a fresh copy of the ARM 64 based image and install GCC
-FROM arm64v8/python:${RUNTIME_VERSION}-alpine${DISTRO_VERSION} AS python-alpine
-# Install GCC (Alpine uses musl but we compile and link dependencies with GCC)
-RUN apk add --no-cache \
-    libstdc++
+# Grab a fresh copy of the ARM 64 based image
+FROM arm64v8/python:${RUNTIME_VERSION}-slim-bookworm AS python-slim-bookworm
 
 # Stage 2 - build function and dependencies
-FROM python-alpine AS build-image
+FROM python-slim-bookworm AS build-image
 # Install aws-lambda-cpp build dependencies
-RUN apk add --no-cache \
-    build-base \
-    libtool \
-    autoconf \
-    automake \
-    libexecinfo-dev \
-    make \
-    cmake \
-    libcurl
+RUN apt-get update && \
+  apt-get install -y \
+  g++ \
+  make \
+  cmake \
+  unzip \
+  libcurl4-openssl-dev
+
 # Include global args in this stage of the build
 ARG FUNCTION_DIR
 ARG RUNTIME_VERSION
@@ -36,7 +30,7 @@ RUN pip install awslambdaric --target ${FUNCTION_DIR}
 
 # Stage 3 - final runtime image
 # Grab a fresh copy of the Python image
-FROM python-alpine
+FROM python-slim-bookworm
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
 # Set working directory to function root directory it also creates the directory and cd to that directory
@@ -45,8 +39,10 @@ WORKDIR ${FUNCTION_DIR}
 COPY --from=build-image ${FUNCTION_DIR} ./
 # (Optional) Add Lambda Runtime Interface Emulator and use a script in the ENTRYPOINT for simpler local runs
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/bin/aws-lambda-rie
+# Create the directory explicitly
+RUN mkdir -p /opt/extensions
 # SumoLogic Lambda extension
-ADD sumologic-extension-arm64.tar.gz /opt/
+COPY extensions/sumologic-extension /opt/extensions/
 COPY entry.sh /
 RUN chmod 755 /usr/bin/aws-lambda-rie /entry.sh
 ENTRYPOINT [ "/entry.sh" ]

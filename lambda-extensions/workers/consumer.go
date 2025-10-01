@@ -2,7 +2,6 @@ package workers
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -87,22 +86,21 @@ func (sc *sumoConsumer) consumeTask(ctx context.Context, wg *sync.WaitGroup, raw
 		sc.dataQueue <- rawmsg
 		// TODO: raise alert if send logs fails
 	}
-	return
 }
 
 func (sc *sumoConsumer) DrainQueue(ctx context.Context) int {
 	//sc.logger.Debug("Consuming data from dataQueue")
 
 	var rawMsgArr [][]byte
-	var logsStr string = ""
-	var runtime_done int = 0
+	var logsStr string
+	var runtime_done = 0
 Loop:
 	for {
 		//Receives block when the buffer is empty.
 		select {
 		case rawmsg := <-sc.dataQueue:
 			rawMsgArr = append(rawMsgArr, rawmsg)
-			logsStr = fmt.Sprintf("%s", rawmsg)
+			logsStr = string(rawmsg)
 			sc.logger.Debugf("DrainQueue: logsStr: %s", logsStr)
 			if strings.Contains(logsStr, string(RuntimeDone)) {
 				runtime_done = 1

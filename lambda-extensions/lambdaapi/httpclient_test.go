@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -60,7 +61,11 @@ func TestNewClient(t *testing.T) {
 func createTestServer(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertEqual(t, r.Method, http.MethodGet, "Method is not GET.")
-		defer r.Body.Close()
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("failed to close body: %v", err)
+			}
+		}()
 
 		w.Header().Add(extensionIdentiferHeader, "test-sumo-id")
 		w.WriteHeader(200)
@@ -91,7 +96,7 @@ func runMakeRequest(ctx context.Context, t *testing.T) ([]byte, *Client, error) 
 }
 
 func TestMakeRequest(t *testing.T) {
-	response, client, err := runMakeRequest(nil, t)
+	response, client, err := runMakeRequest(context.TODO(), t)
 	commonAsserts(t, client, response, err)
 }
 

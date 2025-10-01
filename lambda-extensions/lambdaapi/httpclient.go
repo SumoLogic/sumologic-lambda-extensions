@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	ioutil "io"
+	"log"
 	"net/http"
 )
 
@@ -49,13 +50,17 @@ func (client *Client) MakeRequestWithContext(ctx context.Context, headers map[st
 	if err != nil {
 		return nil, err
 	}
-	defer httpRes.Body.Close()
+	defer func() {
+		if err := httpRes.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 	body, err := ioutil.ReadAll(httpRes.Body)
 	if err != nil {
 		return nil, err
 	}
 	if httpRes.StatusCode != 200 {
-		return nil, fmt.Errorf("Request failed with status %s and response %s", httpRes.Status, string(body))
+		return nil, fmt.Errorf("request failed with status %s and response %s", httpRes.Status, string(body))
 	}
 	// Get the Extension ID from the headers
 	id := httpRes.Header.Get(extensionIdentiferHeader)
@@ -82,13 +87,17 @@ func (client *Client) MakeRequest(headers map[string]string, request *bytes.Buff
 	if err != nil {
 		return nil, err
 	}
-	defer httpRes.Body.Close()
+	defer func() {
+		if err := httpRes.Body.Close(); err != nil {
+			log.Printf("failed to close response body: %v", err)
+		}
+	}()
 	body, err := ioutil.ReadAll(httpRes.Body)
 	if err != nil {
 		return nil, err
 	}
 	if httpRes.StatusCode != 200 {
-		return nil, fmt.Errorf("Request failed with status %s and response %s", httpRes.Status, string(body))
+		return nil, fmt.Errorf("request failed with status %s and response %s", httpRes.Status, string(body))
 	}
 	// Get the Extension ID from the headers
 	id := httpRes.Header.Get(extensionIdentiferHeader)

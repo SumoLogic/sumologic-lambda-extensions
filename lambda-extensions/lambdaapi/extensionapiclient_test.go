@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	ioutil "io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,7 +17,11 @@ func TestRegisterExtension(t *testing.T) {
 
 		reqBytes, err := ioutil.ReadAll(r.Body)
 		assertNoError(t, err, "Received error while reading request")
-		defer r.Body.Close()
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("failed to close body: %v", err)
+			}
+		}()
 		assertNotEmpty(t, reqBytes, "Received error in request")
 
 		w.Header().Add(extensionIdentiferHeader, "test-sumo-id")
@@ -29,7 +34,7 @@ func TestRegisterExtension(t *testing.T) {
 	client := NewClient(srv.URL[7:], extensionName)
 
 	// Without Context
-	response, err := client.RegisterExtension(nil)
+	response, err := client.RegisterExtension(context.TODO())
 	commonAsserts(t, client, response, err)
 
 	// With Context
@@ -41,7 +46,12 @@ func TestNextEvent(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assertEqual(t, r.Method, http.MethodGet, "Method is not GET")
 		assertNotEmpty(t, r.Header.Get(extensionIdentiferHeader), "Extension ID Header not present")
-		defer r.Body.Close()
+
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("failed to close body: %v", err)
+			}
+		}()
 
 		w.Header().Add(extensionIdentiferHeader, "test-sumo-id")
 		w.WriteHeader(200)
@@ -58,7 +68,7 @@ func TestNextEvent(t *testing.T) {
 	client := NewClient(srv.URL[7:], extensionName)
 
 	// Without Context
-	response, err := client.NextEvent(nil)
+	response, err := client.NextEvent(context.TODO())
 	commonAsserts(t, client, response, err)
 
 	// With Context
@@ -75,7 +85,13 @@ func TestInitError(t *testing.T) {
 
 		reqBytes, err := ioutil.ReadAll(r.Body)
 		assertNoError(t, err, "Received error in request")
-		defer r.Body.Close()
+
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("failed to close body: %v", err)
+			}
+		}()
+
 		assertNotEmpty(t, reqBytes, "Received error in request")
 
 		w.Header().Add(extensionIdentiferHeader, "test-sumo-id")
@@ -88,7 +104,7 @@ func TestInitError(t *testing.T) {
 	client := NewClient(srv.URL[7:], extensionName)
 
 	// Without Context
-	response, err := client.InitError(nil, "INIT ERROR")
+	response, err := client.InitError(context.TODO(), "INIT ERROR")
 	commonAsserts(t, client, response, err)
 
 	// With Context
@@ -105,7 +121,13 @@ func TestExitError(t *testing.T) {
 
 		reqBytes, err := ioutil.ReadAll(r.Body)
 		assertNoError(t, err, "Received error in request")
-		defer r.Body.Close()
+
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				log.Printf("failed to close body: %v", err)
+			}
+		}()
+
 		assertNotEmpty(t, reqBytes, "Received error in request")
 
 		w.Header().Add(extensionIdentiferHeader, "test-sumo-id")
@@ -118,7 +140,7 @@ func TestExitError(t *testing.T) {
 	client := NewClient(srv.URL[7:], extensionName)
 
 	// Without Context
-	response, err := client.ExitError(nil, "EXIT ERROR")
+	response, err := client.ExitError(context.TODO(), "EXIT ERROR")
 	commonAsserts(t, client, response, err)
 
 	// With Context
