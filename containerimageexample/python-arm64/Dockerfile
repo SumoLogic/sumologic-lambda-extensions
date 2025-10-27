@@ -39,10 +39,14 @@ WORKDIR ${FUNCTION_DIR}
 COPY --from=build-image ${FUNCTION_DIR} ./
 # (Optional) Add Lambda Runtime Interface Emulator and use a script in the ENTRYPOINT for simpler local runs
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/bin/aws-lambda-rie
-# Create the directory explicitly
+# Create the target directory for extensions
 RUN mkdir -p /opt/extensions
-# SumoLogic Lambda extension
-COPY extensions/sumologic-extension /opt/extensions/
+
+# Extract the Sumo Logic Lambda extension package
+ADD sumologic-extension-arm64.tar.gz /opt/extensions/
+
+# Clean up any hidden files from the extracted content
+RUN find /opt/extensions -type f -name ".*" -delete
 COPY entry.sh /
 RUN chmod 755 /usr/bin/aws-lambda-rie /entry.sh
 ENTRYPOINT [ "/entry.sh" ]
