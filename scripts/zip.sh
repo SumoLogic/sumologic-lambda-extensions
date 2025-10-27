@@ -40,8 +40,8 @@ for arch in "${ARCHITECTURES[@]}"; do
 
   echo "Creating the Zip file binary in extension folder."
   cd "${TARGET_DIR}/${arch}"
-  zip -r "zip/${binary_name}.zip" extensions/
-  tar -czvf "zip/${binary_name}-${arch}.tar.gz" extensions/
+  zip -j "zip/${binary_name}.zip" "extensions/${binary_name}"
+  tar -czvf "zip/${binary_name}-${arch}.tar.gz" -C extensions "${binary_name}"
   status=$?
   if [ $status -ne 0 ]; then
   	echo "Zip Generation Failed"
