@@ -72,6 +72,7 @@ for arch in "${ARCHITECTURES[@]}"; do
     ap-southeast-1
     ap-southeast-2
     eu-central-1
+    eu-central-2
     us-west-1
     us-west-2
   )
