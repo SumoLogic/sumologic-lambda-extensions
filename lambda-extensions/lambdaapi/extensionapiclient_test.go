@@ -34,11 +34,11 @@ func TestRegisterExtension(t *testing.T) {
 	client := NewClient(srv.URL[7:], extensionName)
 
 	// Without Context
-	response, err := client.RegisterExtension(context.TODO())
+	response, err := client.RegisterExtension(context.TODO(), false)
 	commonAsserts(t, client, response, err)
 
 	// With Context
-	response, err = client.RegisterExtension(context.Background())
+	response, err = client.RegisterExtension(context.Background(), false)
 	commonAsserts(t, client, response, err)
 }
 
