@@ -26,12 +26,12 @@ var (
 
 var producer workers.TaskProducer
 var consumer workers.TaskConsumer
-var elevatorProducer workers.ElevatorTaskProducer
-var elevatorConsumer workers.ElevatorTaskConsumer
+var managedInstanceProducer workers.ManagedInstanceTaskProducer
+var managedInstanceConsumer workers.ManagedInstanceTaskConsumer
 var config *cfg.LambdaExtensionConfig
 var dataQueue chan []byte
 var flushSignal chan string
-var isElevator bool
+var isManagedInstance bool
 
 func init() {
 	Formatter := new(logrus.TextFormatter)
@@ -51,30 +51,30 @@ func init() {
 	logger.Logger.SetLevel(config.LogLevel)
 	dataQueue = make(chan []byte, config.MaxDataQueueLength)
 
-	// Check initialization type to determine if elevator mode should be used
+	// Check initialization type to determine if managed instance mode should be used
 	initializationType := os.Getenv("AWS_LAMBDA_INITIALIZATION_TYPE")
 	if initializationType == "lambda-managed-instances" {
-		isElevator = true
-		logger.Debug("Initializing in Elevator mode")
+		isManagedInstance = true
+		logger.Debug("Initializing in Managed Instance mode")
 
-		// Initialize flushSignal channel for elevator mode communication
+		// Initialize flushSignal channel for managed instance mode communication
 		flushSignal = make(chan string, 10) // Buffered channel to prevent blocking
 
-		// Initialize Elevator Producer and start it in a goroutine
-		elevatorProducer = workers.NewElevatorTaskProducer(dataQueue, flushSignal, logger)
+		// Initialize Managed Instance Producer and start it in a goroutine
+		managedInstanceProducer = workers.NewManagedInstanceTaskProducer(dataQueue, flushSignal, logger)
 		go func() {
-			if err := elevatorProducer.Start(); err != nil {
-				logger.Errorf("elevatorProducer Start failed: %v", err)
+			if err := managedInstanceProducer.Start(); err != nil {
+				logger.Errorf("managedInstanceProducer Start failed: %v", err)
 			}
 		}()
 
-		// Initialize Elevator Consumer and start it
-		elevatorConsumer = workers.NewElevatorTaskConsumer(dataQueue, flushSignal, config, logger)
+		// Initialize Managed Instance Consumer and start it
+		managedInstanceConsumer = workers.NewManagedInstanceTaskConsumer(dataQueue, flushSignal, config, logger)
 		// Start the consumer's independent processing loop
 		ctx := context.Background()
-		elevatorConsumer.Start(ctx)
+		managedInstanceConsumer.Start(ctx)
 
-		logger.Debug("Elevator mode initialization complete")
+		logger.Debug("Managed Instance mode initialization complete")
 	} else {
 		logger.Debug("Initializing in standard mode")
 		// Start HTTP Server before subscription in a goRoutine
@@ -90,13 +90,13 @@ func init() {
 		logger.Debug("Standard mode initialization complete")
 	}
 
-	logger.Debug("Is Elevator value: ", isElevator)
+	logger.Debug("Is Managed Instance value: ", isManagedInstance)
 }
 
 func runTimeAPIInit() (int64, error) {
 	// Register early so Runtime could start in parallel
 	logger.Debug("Registering Extension to Run Time API Client..........")
-	registerResponse, err := extensionClient.RegisterExtension(context.TODO(), isElevator)
+	registerResponse, err := extensionClient.RegisterExtension(context.TODO(), isManagedInstance)
 	if err != nil {
 		return 0, err
 	}
@@ -104,7 +104,7 @@ func runTimeAPIInit() (int64, error) {
 
 	// Subscribe to Telemetry API
 	logger.Debug("Subscribing Extension to Telemetry API........")
-	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(context.TODO(), config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems, isElevator)
+	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(context.TODO(), config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems, isManagedInstance)
 	if err != nil {
 		return 0, err
 	}
@@ -112,7 +112,7 @@ func runTimeAPIInit() (int64, error) {
 	logger.Debug("Successfully subscribed to Telemetry API: ", utils.PrettyPrint(string(subscribeResponse)))
 
 	// Call next to say registration is successful and get the deadtimems
-	if !isElevator {
+	if !isManagedInstance {
 		nextResponse, err := nextEvent(context.TODO())
 		if err != nil {
 			return 0, err
@@ -146,7 +146,7 @@ func processEvents(ctx context.Context) {
 			consumer.FlushDataQueue(ctx)
 			return
 		default:
-			if !isElevator {
+			if !isManagedInstance {
 				logger.Debugf("switching to other go routine")
 				runtime.Gosched()
 				logger.Infof("Calling DrainQueue from processEvents")

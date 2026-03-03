@@ -14,11 +14,11 @@ const (
 	//telemetry_receiverPort = 4243
 )
 
-// SubscribeToLogsAPI is - Subscribe to Logs API to receive the Lambda Logs.
-func (client *Client) SubscribeToTelemetryAPI(ctx context.Context, logEvents []string, telemetryTimeoutMs int, telemetryMaxBytes int64, telemetryMaxItems int, isElevator bool) ([]byte, error) {
+// SubscribeToTelemetryAPI is - Subscribe to Telemetry API to receive the Lambda Telemetry.
+func (client *Client) SubscribeToTelemetryAPI(ctx context.Context, logEvents []string, telemetryTimeoutMs int, telemetryMaxBytes int64, telemetryMaxItems int, isManagedInstance bool) ([]byte, error) {
 	URL := client.baseURL + telemetryURL
 	schemaVersion := "2022-07-01"
-	if isElevator {
+	if isManagedInstance {
 		schemaVersion = "2025-01-29"
 	}
 	reqBody, err := json.Marshal(map[string]interface{}{

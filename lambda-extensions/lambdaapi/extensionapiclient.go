@@ -46,17 +46,17 @@ const (
 )
 
 var (
-	lambdaEvents         = []EventType{"INVOKE", "SHUTDOWN"}
-	elevatorLambdaEvents = []EventType{"SHUTDOWN"}
+	lambdaEvents                = []EventType{"INVOKE", "SHUTDOWN"}
+	managedInstanceLambdaEvents = []EventType{"SHUTDOWN"}
 )
 
 // RegisterExtension is to register extension to Run Time API client. Call the following method on initialization as early as possible,
 // otherwise you may get a timeout error. Runtime initialization will start after all extensions are registered.
-func (client *Client) RegisterExtension(ctx context.Context, isElevator bool) (*RegisterResponse, error) {
+func (client *Client) RegisterExtension(ctx context.Context, isManagedInstance bool) (*RegisterResponse, error) {
 	URL := client.baseURL + extensionURL + "register"
 	events := lambdaEvents
-	if isElevator {
-		events = elevatorLambdaEvents
+	if isManagedInstance {
+		events = managedInstanceLambdaEvents
 	}
 	reqBody, err := json.Marshal(map[string]interface{}{
 		"events": events,
