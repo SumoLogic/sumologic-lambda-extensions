@@ -32,7 +32,6 @@ for region in "${AWS_REGIONS[@]}"; do
     latest_version=$(aws lambda list-layer-versions \
         --layer-name "$LAYER_NAME" \
         --region "$region" \
-        --profile sumocontent \
         --query 'max_by(LayerVersions, &Version).Version' \
         --output text 2>/dev/null)
 
