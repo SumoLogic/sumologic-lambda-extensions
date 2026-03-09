@@ -40,7 +40,7 @@ for arch in "${ARCHITECTURES[@]}"; do
 
   echo "Creating the Zip file binary in extension folder."
   cd "${TARGET_DIR}/${arch}"
-  zip -j "zip/${binary_name}.zip" "extensions/${binary_name}"
+  zip -r "zip/${binary_name}.zip" "extensions/${binary_name}"
   tar -czvf "zip/${binary_name}-${arch}.tar.gz" -C extensions "${binary_name}"
   status=$?
   if [ $status -ne 0 ]; then
@@ -74,6 +74,7 @@ for arch in "${ARCHITECTURES[@]}"; do
     eu-central-1
     us-west-1
     us-west-2
+    ca-west-1
   )
 
   echo "Using AWS_PROFILE: ${AWS_PROFILE}"

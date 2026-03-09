@@ -22,6 +22,7 @@ AWS_REGIONS=(
     eu-central-1
     us-west-1
     us-west-2
+    ca-west-1
 )
 
 echo "Fetching latest version of layer: $LAYER_NAME"
@@ -31,6 +32,7 @@ for region in "${AWS_REGIONS[@]}"; do
     latest_version=$(aws lambda list-layer-versions \
         --layer-name "$LAYER_NAME" \
         --region "$region" \
+        --profile sumocontent \
         --query 'max_by(LayerVersions, &Version).Version' \
         --output text 2>/dev/null)
 
