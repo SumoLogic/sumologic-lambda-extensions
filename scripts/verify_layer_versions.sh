@@ -22,6 +22,7 @@ AWS_REGIONS=(
     eu-central-1
     us-west-1
     us-west-2
+    ca-west-1
 )
 
 echo "Fetching latest version of layer: $LAYER_NAME"

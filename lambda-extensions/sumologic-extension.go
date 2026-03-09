@@ -26,8 +26,12 @@ var (
 
 var producer workers.TaskProducer
 var consumer workers.TaskConsumer
+var managedInstanceProducer workers.ManagedInstanceTaskProducer
+var managedInstanceConsumer workers.ManagedInstanceTaskConsumer
 var config *cfg.LambdaExtensionConfig
 var dataQueue chan []byte
+var flushSignal chan string
+var isManagedInstance bool
 
 func init() {
 	Formatter := new(logrus.TextFormatter)
@@ -47,22 +51,52 @@ func init() {
 	logger.Logger.SetLevel(config.LogLevel)
 	dataQueue = make(chan []byte, config.MaxDataQueueLength)
 
-	// Start HTTP Server before subscription in a goRoutine
-	producer = workers.NewTaskProducer(dataQueue, logger)
-	go func() {
-		if err := producer.Start(); err != nil {
-			logger.Errorf("producer Start failed: %v", err)
-		}
-	}()
+	// Check initialization type to determine if managed instance mode should be used
+	initializationType := os.Getenv("AWS_LAMBDA_INITIALIZATION_TYPE")
+	if initializationType == "lambda-managed-instances" {
+		isManagedInstance = true
+		logger.Debug("Initializing in Managed Instance mode")
 
-	// Creating SumoTaskConsumer
-	consumer = workers.NewTaskConsumer(dataQueue, config, logger)
+		// Initialize flushSignal channel for managed instance mode communication
+		flushSignal = make(chan string, 10) // Buffered channel to prevent blocking
+
+		// Initialize Managed Instance Producer and start it in a goroutine
+		managedInstanceProducer = workers.NewManagedInstanceTaskProducer(dataQueue, flushSignal, logger)
+		go func() {
+			if err := managedInstanceProducer.Start(); err != nil {
+				logger.Errorf("managedInstanceProducer Start failed: %v", err)
+			}
+		}()
+
+		// Initialize Managed Instance Consumer and start it
+		managedInstanceConsumer = workers.NewManagedInstanceTaskConsumer(dataQueue, flushSignal, config, logger)
+		// Start the consumer's independent processing loop
+		ctx := context.Background()
+		managedInstanceConsumer.Start(ctx)
+
+		logger.Debug("Managed Instance mode initialization complete")
+	} else {
+		logger.Debug("Initializing in standard mode")
+		// Start HTTP Server before subscription in a goRoutine
+		producer = workers.NewTaskProducer(dataQueue, logger)
+		go func() {
+			if err := producer.Start(); err != nil {
+				logger.Errorf("producer Start failed: %v", err)
+			}
+		}()
+
+		// Creating SumoTaskConsumer
+		consumer = workers.NewTaskConsumer(dataQueue, config, logger)
+		logger.Debug("Standard mode initialization complete")
+	}
+
+	logger.Debug("Is Managed Instance value: ", isManagedInstance)
 }
 
 func runTimeAPIInit() (int64, error) {
 	// Register early so Runtime could start in parallel
 	logger.Debug("Registering Extension to Run Time API Client..........")
-	registerResponse, err := extensionClient.RegisterExtension(context.TODO())
+	registerResponse, err := extensionClient.RegisterExtension(context.TODO(), isManagedInstance)
 	if err != nil {
 		return 0, err
 	}
@@ -70,7 +104,7 @@ func runTimeAPIInit() (int64, error) {
 
 	// Subscribe to Telemetry API
 	logger.Debug("Subscribing Extension to Telemetry API........")
-	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(context.TODO(), config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems)
+	subscribeResponse, err := extensionClient.SubscribeToTelemetryAPI(context.TODO(), config.LogTypes, config.TelemetryTimeoutMs, config.TelemetryMaxBytes, config.TelemetryMaxItems, isManagedInstance)
 	if err != nil {
 		return 0, err
 	}
@@ -78,11 +112,14 @@ func runTimeAPIInit() (int64, error) {
 	logger.Debug("Successfully subscribed to Telemetry API: ", utils.PrettyPrint(string(subscribeResponse)))
 
 	// Call next to say registration is successful and get the deadtimems
-	nextResponse, err := nextEvent(context.TODO())
-	if err != nil {
-		return 0, err
+	if !isManagedInstance {
+		nextResponse, err := nextEvent(context.TODO())
+		if err != nil {
+			return 0, err
+		}
+		return nextResponse.DeadlineMs, nil
 	}
-	return nextResponse.DeadlineMs, nil
+	return 0, nil
 }
 
 func nextEvent(ctx context.Context) (*lambdaapi.NextEventResponse, error) {
@@ -109,15 +146,17 @@ func processEvents(ctx context.Context) {
 			consumer.FlushDataQueue(ctx)
 			return
 		default:
-			logger.Debugf("switching to other go routine")
-			runtime.Gosched()
-			logger.Infof("Calling DrainQueue from processEvents")
-			// for {
-			runtime_done := consumer.DrainQueue(ctx)
-
-			if runtime_done == 1 {
-				logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
+			if !isManagedInstance {
+				logger.Debugf("switching to other go routine")
+				runtime.Gosched()
+				logger.Infof("Calling DrainQueue from processEvents")
+				// for {
+				runtime_done := consumer.DrainQueue(ctx)
+				if runtime_done == 1 {
+					logger.Infof("Exiting DrainQueueLoop: Runtime is Done")
+				}
 			}
+
 			// }
 
 			// This statement will freeze lambda
