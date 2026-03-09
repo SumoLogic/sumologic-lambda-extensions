@@ -27,6 +27,9 @@ All the logs that are not sent to Sumo Logic during the Execution phase of the A
 
 If you would like to always send logs during the execution phase however, you can add extra execution time via a sleep function at the end of lambda code, which will give your extension time to run and send logs to Sumo Logic. We recommend setting this to two seconds.
 
+# Managed Instance Runtime Support
+This Lambda extension from version v1.4.0 also supports [managed instance](https://docs.aws.amazon.com/lambda/latest/dg/lambda-managed-instances.html) runtime.
+
 # Using Lambda extension in custom container images
 
 Follow the instruction in [docs](https://help.sumologic.com/03Send-Data/Collect-from-Other-Data-Sources/Collect_AWS_Lambda_Logs_using_an_Extension#For_AWS_Lambda_Functions_Created_Using_Container_Images:)
