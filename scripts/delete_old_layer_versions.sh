@@ -38,7 +38,11 @@ for arch in "${ARCHITECTURES[@]}"; do
     layer_name="${binary_name}-${arch}"
 
     for region in "${AWS_REGIONS[@]}"; do
-        echo "Layer Arn: arn:aws:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deleted from Region ${region}"
+        # Dynamically get the partition for the region from AWS
+        caller_arn=$(aws sts get-caller-identity --region ${region} --profile ${AWS_PROFILE} --query 'Arn' --output text)
+        partition=$(echo ${caller_arn} | cut -d':' -f2)
+
+        echo "Layer Arn: arn:${partition}:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deleted from Region ${region}"
         aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region}
     done
 done

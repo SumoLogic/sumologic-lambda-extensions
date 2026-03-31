@@ -88,7 +88,12 @@ for arch in "${ARCHITECTURES[@]}"; do
       --description "The SumoLogic Extension collects lambda logs and send it to Sumo Logic." \
       --license-info "Apache-2.0" --zip-file fileb://$(pwd)/${extension_zip_dir}/${binary_name}.zip \
       --profile ${AWS_PROFILE} --region ${region} --output text --query Version )
-      echo "Layer Arn: arn:aws:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deployed to Region ${region}"
+
+      # Dynamically get the partition for the region from AWS
+      caller_arn=$(aws sts get-caller-identity --region ${region} --profile ${AWS_PROFILE} --query 'Arn' --output text)
+      partition=$(echo ${caller_arn} | cut -d':' -f2)
+
+      echo "Layer Arn: arn:${partition}:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deployed to Region ${region}"
 
       echo "Setting public permissions for layer version: ${layer_version}"
       aws lambda add-layer-version-permission --layer-name ${layer_name}  --statement-id ${layer_name}-prod --version-number $layer_version --principal '*' --action lambda:GetLayerVersion --region ${region} --profile ${AWS_PROFILE}
