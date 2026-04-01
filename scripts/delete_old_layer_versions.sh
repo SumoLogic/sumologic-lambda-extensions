@@ -43,6 +43,6 @@ for arch in "${ARCHITECTURES[@]}"; do
         partition=$(echo ${caller_arn} | cut -d':' -f2)
 
         echo "Layer Arn: arn:${partition}:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deleted from Region ${region}"
-        aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region}
+        aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region} --profile ${AWS_PROFILE}
     done
 done
