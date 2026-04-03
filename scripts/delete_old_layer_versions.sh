@@ -18,21 +18,13 @@ AWS_REGIONS=(
     eu-central-1
     us-west-1
     us-west-2
-    eusc-de-east-1
   )
 
 
 if [[ -z "${AWS_PROFILE}" ]]; then
     export AWS_PROFILE="personal"
 fi
-
-# Set AWS_PROFILE_EUSC for European Sovereign Cloud regions (can be overridden via environment)
-if [[ -z "${AWS_PROFILE_EUSC}" ]]; then
-    export AWS_PROFILE_EUSC="esc_personal"
-fi
-
 echo "Using AWS_PROFILE: ${AWS_PROFILE}"
-echo "Using AWS_PROFILE_EUSC: ${AWS_PROFILE_EUSC}"
 
 binary_name="sumologic-extension"
 
@@ -46,20 +38,7 @@ for arch in "${ARCHITECTURES[@]}"; do
     layer_name="${binary_name}-${arch}"
 
     for region in "${AWS_REGIONS[@]}"; do
-        # Auto-detect profile based on region prefix
-        if [[ "${region}" =~ ^eusc- ]]; then
-          profile="${AWS_PROFILE_EUSC}"
-        else
-          profile="${AWS_PROFILE}"
-        fi
-
-        echo "Deleting from region ${region} using profile ${profile}"
-
-        # Dynamically get the partition for the region from AWS
-        caller_arn=$(aws sts get-caller-identity --region ${region} --profile ${profile} --query 'Arn' --output text)
-        partition=$(echo ${caller_arn} | cut -d':' -f2)
-
-        echo "Layer Arn: arn:${partition}:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deleted from Region ${region}"
-        aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region} --profile ${profile}
+        echo "Layer Arn: arn:aws:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deleted from Region ${region}"
+        aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region} --profile ${AWS_PROFILE}
     done
 done
