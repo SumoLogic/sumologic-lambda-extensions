@@ -39,6 +39,6 @@ for arch in "${ARCHITECTURES[@]}"; do
 
     for region in "${AWS_REGIONS[@]}"; do
         echo "Layer Arn: arn:aws:lambda:${region}:<accountId>:layer:${layer_name}:${layer_version} deleted from Region ${region}"
-        aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region}
+        aws lambda delete-layer-version --layer-name ${layer_name} --version-number ${layer_version} --region ${region} --profile ${AWS_PROFILE}
     done
 done
