@@ -63,12 +63,12 @@ First of all, thanks for contributing!. Before contributing please read the [COD
 1. Run the following command to verify that the layer version is published across regions:
    `sh verify_layer_versions.sh`
 
-#### Releasing layer for EUSC(Euorpean Sovereign cloud) AWS
-We have a seperate EUSC production aws account where we need to publish. 
-1. You need to get the EUSC accessid and accesskey via dev cli.
+#### Releasing layer for EUSC (European Sovereign Cloud) AWS
+We have a separate EUSC production AWS account where we need to publish the layer.
+1. Get the EUSC AWS access key ID and secret access key via the dev CLI:
   `dev hcvault login`
   `dev hcvault cli_env -a esc-production`
-1. Change the *AWS_PROFILE_EUSC* environment variable using below command. The profile should point to eusc production aws account.
+1. Set the *AWS_PROFILE_EUSC* environment variable using the command below. The profile should point to the EUSC production AWS account.
   `export AWS_PROFILE_EUSC=<eusc production profile>`
 1. Update the layer version in *config/version.go*.
 1. Go to scripts folder
